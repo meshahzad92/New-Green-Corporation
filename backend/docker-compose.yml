@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: agrimanage-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agrimanage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agrimanage_password}
+      POSTGRES_DB: ${POSTGRES_DB:-agrimanage_db}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agrimanage}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
   backend:
     container_name: agrimanage-backend
     build:
@@ -12,9 +32,9 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-    volumes:
-      # Use named volume for database persistence
-      - agrimanage-data:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/v1/health')"]
@@ -23,7 +43,7 @@ services:
       retries: 3
       start_period: 40s
 
-# Named volume for persistent database storage
+# Named volumes for data persistence
 volumes:
-  agrimanage-data:
+  postgres-data:
     driver: local
