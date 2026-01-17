@@ -1,0 +1,440 @@
+/* ============================================
+   FIGMA CALENDAR - EXACT REPLICA
+   Minimal, Clean, Flat Design
+   Light & Dark Mode Support
+   ============================================ */
+
+/* Reset and Base */
+.figma-datepicker-wrapper {
+  width: 100%;
+  position: relative;
+}
+
+/* ============================================
+   INPUT FIELD - Light Mode Default
+   ULTRA HIGH SPECIFICITY TO OVERRIDE EVERYTHING
+   ============================================ */
+
+/* Base Input - WHITE by default */
+.figma-datepicker-input,
+input.figma-datepicker-input,
+.react-datepicker-wrapper input.figma-datepicker-input,
+.figma-datepicker-wrapper input.figma-datepicker-input {
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.75rem !important;
+  font-size: 0.9375rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  outline: none !important;
+  cursor: pointer !important;
+  /* FORCE WHITE - Maximum Priority */
+  background: white !important;
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+.figma-datepicker-input:hover,
+input.figma-datepicker-input:hover {
+  border-color: #d1d5db !important;
+}
+
+.figma-datepicker-input:focus,
+input.figma-datepicker-input:focus {
+  border-color: #9ca3af !important;
+  box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.1) !important;
+}
+
+/* Light Mode - Extra Reinforcement */
+.light-mode .figma-datepicker-input,
+.light-mode input.figma-datepicker-input,
+.figma-datepicker-wrapper.light-mode .figma-datepicker-input,
+.figma-datepicker-wrapper.light-mode input.figma-datepicker-input {
+  background: white !important;
+  background-color: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #1f2937 !important;
+}
+
+/* Dark Mode Input - Only Override When Dark */
+.dark-mode .figma-datepicker-input,
+.dark-mode input.figma-datepicker-input,
+.figma-datepicker-wrapper.dark-mode .figma-datepicker-input,
+.figma-datepicker-wrapper.dark-mode input.figma-datepicker-input {
+  background: #374151 !important;
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark-mode .figma-datepicker-input:hover,
+.dark-mode input.figma-datepicker-input:hover {
+  border-color: #6b7280 !important;
+}
+
+.dark-mode .figma-datepicker-input:focus,
+.dark-mode input.figma-datepicker-input:focus {
+  border-color: #9ca3af !important;
+  box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.1) !important;
+}
+
+.figma-datepicker-input::placeholder,
+input.figma-datepicker-input::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Calendar Icon */
+.figma-calendar-icon {
+  position: absolute;
+  right: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.125rem;
+  height: 1.125rem;
+  pointer-events: none;
+  color: #6b7280;
+}
+
+.dark-mode .figma-calendar-icon {
+  color: #9ca3af;
+}
+
+/* ============================================
+   CALENDAR CONTAINER
+   ============================================ */
+
+.figma-calendar {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  border: none;
+  border-radius: 1rem;
+  overflow: hidden;
+  padding: 0;
+  /* Default Light Mode */
+  background: #ffffff;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark Mode Calendar - when wrapper has dark-mode class */
+.dark-mode~.react-datepicker-popper .figma-calendar,
+.dark-mode .react-datepicker-popper .figma-calendar {
+  background: #4b5563 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
+    0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================
+   HEADER (Month/Year + Navigation)
+   ============================================ */
+
+.figma-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1rem;
+  gap: 0.5rem;
+  /* Default Light Mode */
+  background: #ffffff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.dark-mode~.react-datepicker-popper .figma-calendar-header {
+  background: #4b5563 !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+.figma-header-text {
+  flex: 1;
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #374151;
+}
+
+.dark-mode~.react-datepicker-popper .figma-header-text {
+  color: #f3f4f6 !important;
+}
+
+/* Navigation Buttons */
+.figma-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  padding: 0;
+  color: #9ca3af;
+}
+
+.figma-nav-button:hover:not(:disabled) {
+  color: #6b7280;
+  background: #f9fafb;
+}
+
+.dark-mode~.react-datepicker-popper .figma-nav-button {
+  color: #d1d5db !important;
+}
+
+.dark-mode~.react-datepicker-popper .figma-nav-button:hover:not(:disabled) {
+  color: #f3f4f6 !important;
+  background: #374151 !important;
+}
+
+.figma-nav-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   DAY NAMES (SUN, MON, TUE...)
+   ============================================ */
+
+.react-datepicker__day-names {
+  display: flex;
+  justify-content: space-around;
+  padding: 0.75rem 1rem 0.5rem;
+  margin: 0;
+  background: #ffffff;
+}
+
+.dark-mode~.react-datepicker-popper .react-datepicker__day-names {
+  background: #4b5563 !important;
+}
+
+.react-datepicker__day-name {
+  width: 2.5rem;
+  line-height: 1.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+  text-align: center;
+  color: #9ca3af;
+}
+
+/* ============================================
+   MONTH CONTAINER
+   ============================================ */
+
+.react-datepicker__month {
+  margin: 0;
+  padding: 0.5rem 1rem 1rem;
+  background: #ffffff;
+}
+
+.dark-mode~.react-datepicker-popper .react-datepicker__month {
+  background: #4b5563 !important;
+}
+
+/* ============================================
+   WEEK ROWS
+   ============================================ */
+
+.react-datepicker__week {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 0.25rem;
+}
+
+/* ============================================
+   DAY CELLS
+   ============================================ */
+
+.react-datepicker__day {
+  width: 2.5rem;
+  height: 2.5rem;
+  line-height: 2.5rem;
+  margin: 0;
+  border-radius: 50%;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #374151;
+  background: transparent;
+}
+
+.react-datepicker__day:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected) {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+/* Dark Mode Days */
+.dark-mode~.react-datepicker-popper .react-datepicker__day {
+  color: #f3f4f6 !important;
+}
+
+.dark-mode~.react-datepicker-popper .react-datepicker__day:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected) {
+  background: #374151 !important;
+  color: #ffffff !important;
+}
+
+/* ============================================
+   SELECTED DAY (Orange Circle - #FF5722)
+   ============================================ */
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background: #ff5722 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--keyboard-selected:hover {
+  background: #f4511e !important;
+  color: #ffffff !important;
+}
+
+/* ============================================
+   TODAY (No special styling in Figma design)
+   ============================================ */
+
+.react-datepicker__day--today {
+  font-weight: 600;
+}
+
+/* ============================================
+   OUTSIDE MONTH DAYS
+   ============================================ */
+
+.react-datepicker__day--outside-month {
+  color: #d1d5db;
+}
+
+.dark-mode~.react-datepicker-popper .react-datepicker__day--outside-month {
+  color: #6b7280 !important;
+}
+
+.react-datepicker__day--outside-month:hover {
+  background: transparent !important;
+}
+
+/* ============================================
+   DISABLED DAYS
+   ============================================ */
+
+.react-datepicker__day--disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.react-datepicker__day--disabled:hover {
+  background: transparent !important;
+}
+
+/* ============================================
+   RANGE SELECTION (if used)
+   ============================================ */
+
+.react-datepicker__day--in-range {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dark-mode~.react-datepicker-popper .react-datepicker__day--in-range {
+  background: #7f1d1d !important;
+  color: #fca5a5 !important;
+}
+
+.react-datepicker__day--range-start,
+.react-datepicker__day--range-end {
+  background: #ff5722 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+/* ============================================
+   REMOVE TRIANGLE/ARROW
+   ============================================ */
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+.react-datepicker-popper[data-placement^="bottom"] .react-datepicker__triangle,
+.react-datepicker-popper[data-placement^="top"] .react-datepicker__triangle {
+  display: none !important;
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+
+@media (max-width: 640px) {
+  .figma-calendar {
+    font-size: 0.875rem;
+  }
+
+  .figma-calendar-header {
+    padding: 1rem 0.75rem;
+  }
+
+  .figma-header-text {
+    font-size: 0.875rem;
+  }
+
+  .figma-nav-button {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .react-datepicker__day {
+    width: 2.25rem;
+    height: 2.25rem;
+    line-height: 2.25rem;
+    font-size: 0.875rem;
+  }
+
+  .react-datepicker__day-name {
+    width: 2.25rem;
+    font-size: 0.625rem;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+.figma-nav-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.react-datepicker__day:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   SMOOTH TRANSITIONS
+   ============================================ */
+
+.react-datepicker {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
