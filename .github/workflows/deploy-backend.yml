@@ -7,6 +7,7 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
+      - 'test.txt'
 
 jobs:
   deploy:
@@ -15,33 +16,45 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            cd ~/New-Green-Corporation/backend
+            echo "🚀 Starting deployment to EC2..."
             
-            echo "🔄 Pulling latest code..."
+            cd ~/New-Green-Corporation
+            
+            echo "🔄 Pulling latest code from GitHub..."
             git pull origin main
             
-            echo "🐳 Rebuilding Docker container..."
-            docker-compose down
-            docker-compose up -d --build
+            cd backend
             
-            echo "⏳ Waiting for container to start..."
+            echo "🐳 Stopping old containers..."
+            docker-compose down
+            
+            echo "🔨 Building new Docker image..."
+            docker-compose build
+            
+            echo "🚀 Starting new container..."
+            docker-compose up -d
+            
+            echo "⏳ Waiting for application to start (15 seconds)..."
             sleep 15
             
-            echo "✅ Deployment complete!"
+            echo "📊 Container status:"
             docker-compose ps
             
-            echo "📊 Checking API health..."
-            curl -f http://localhost:8000/api/v1/health || echo "⚠️ Health check failed"
+            echo "🏥 Health check:"
+            curl -f http://localhost:8000/api/v1/health && echo "✅ API is healthy!" || echo "⚠️ Health check failed"
             
             echo "🧹 Cleaning up old Docker images..."
             docker image prune -f
+            
+            echo "✅ Deployment completed successfully!"
+            docker-compose logs --tail 20
