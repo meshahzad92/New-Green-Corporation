@@ -38,16 +38,14 @@ def read_products(
 @router.post("/", response_model=Product, status_code=status.HTTP_201_CREATED)
 def create_product(
     product: ProductCreate, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     return crud_product.create_product(db=db, product=product)
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: UUID, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     db_product = crud_product.delete_product(db, product_id=product_id)
     if db_product is None:
