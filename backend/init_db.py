@@ -88,20 +88,25 @@ def init_db():
     db.commit()
     print("✅ Predefined companies seeded successfully")
     
-    # Check if user exists
-    user = db.query(User).filter(User.email == "waris92").first()
-    if not user:
-        new_user = User(
-            email="waris92",
-            hashed_password=get_password_hash("waris92"),
-            full_name="Waris Admin",
-            is_active=True
-        )
-        db.add(new_user)
-        db.commit()
-        print("✅ Created default user: waris92 / waris92")
-    else:
-        print("✅ Default user already exists")
+    # Check if user exists - wrapped in try-except for bcrypt compatibility
+    try:
+        user = db.query(User).filter(User.email == "waris92").first()
+        if not user:
+            new_user = User(
+                email="waris92",
+                hashed_password=get_password_hash("waris92"),
+                full_name="Waris Admin",
+                is_active=True
+            )
+            db.add(new_user)
+            db.commit()
+            print("✅ Created default user: waris92 / waris92")
+        else:
+            print("✅ Default user already exists")
+    except Exception as e:
+        print(f"⚠️  Skipping user creation due to error: {e}")
+        print("💡 You can create users manually later via the API")
+        db.rollback()
     
     db.close()
     print("🎉 Database initialization complete!")
