@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
+from app.core.config import settings
 
 app = FastAPI(
     title="AgriManage Pro API",
@@ -8,10 +9,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Set up CORS for React frontend
+# CORS Configuration - Allows frontend to access backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

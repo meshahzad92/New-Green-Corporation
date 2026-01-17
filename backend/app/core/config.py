@@ -1,16 +1,38 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+from typing import Optional, List
+import os
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AgriManage Pro"
     API_V1_STR: str = "/api/v1"
-    DATABASE_URL: str = "postgresql://postgres:password@localhost/agrimanage"
     
-    # Security Settings
-    SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7" # Change in production
+    # Database - Read from .env, fallback to SQLite for local dev
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
+    
+    # Security Settings - MUST be set in production .env
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "CHANGE-THIS-IN-PRODUCTION-INSECURE-DEFAULT")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 1 week
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 1 week default
+    
+    # API Configuration
+    API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
+    API_PORT: int = int(os.getenv("API_PORT", "8000"))
+    
+    # CORS Settings - Allow both local development and production frontend
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",           # Vite local dev
+        "http://localhost:3000",           # Alternative local port
+        "http://127.0.0.1:5173",          # Localhost alternative
+        "https://*.vercel.app",           # Vercel deployments
+        "*"                                # Allow all (for development)
+    ]
 
-    model_config = SettingsConfigDict(env_file="backend/.env")
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        case_sensitive=True,
+        extra='ignore'  # Allow extra fields like TZ without validation errors
+    )
 
 settings = Settings()
+

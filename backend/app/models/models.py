@@ -9,6 +9,7 @@ class Company(Base):
     __tablename__ = "companies"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False)
+    logo = Column(Text, nullable=True)  # Store logo filename (e.g., "Bayer.png")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     products = relationship("Product", back_populates="company")

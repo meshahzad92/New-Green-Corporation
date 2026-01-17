@@ -28,8 +28,7 @@ def read_products(
     limit: int = 100, 
     search: str = None, 
     category: str = None, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     products = crud_product.get_products(
         db, skip=skip, limit=limit, search=search, category=category

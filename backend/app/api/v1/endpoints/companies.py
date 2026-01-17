@@ -14,8 +14,7 @@ router = APIRouter()
 def read_companies(
     skip: int = 0, 
     limit: int = 100, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(deps.get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     return crud_company.get_companies(db, skip=skip, limit=limit)
 
