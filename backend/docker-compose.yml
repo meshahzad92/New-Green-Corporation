@@ -13,10 +13,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      # Persist database outside container
-      - ./sql_app.db:/app/sql_app.db
-      # Optional: mount logs directory
-      - ./logs:/app/logs
+      # Use named volume for database persistence
+      - agrimanage-data:/app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/v1/health')"]
@@ -24,3 +22,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+# Named volume for persistent database storage
+volumes:
+  agrimanage-data:
+    driver: local
