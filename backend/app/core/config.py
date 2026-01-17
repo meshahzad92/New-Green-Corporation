@@ -18,14 +18,9 @@ class Settings(BaseSettings):
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
     API_PORT: int = int(os.getenv("API_PORT", "8000"))
     
-    # CORS Settings - Allow both local development and production frontend
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",           # Vite local dev
-        "http://localhost:3000",           # Alternative local port
-        "http://127.0.0.1:5173",          # Localhost alternative
-        "https://*.vercel.app",           # Vercel deployments
-        "*"                                # Allow all (for development)
-    ]
+    # CORS Settings - Allow all origins (for development/production)
+    # In production, you can restrict this to specific Vercel domain
+    CORS_ORIGINS: List[str] = ["*"]
 
     model_config = SettingsConfigDict(
         env_file=".env", 
