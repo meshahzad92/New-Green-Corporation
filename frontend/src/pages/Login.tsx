@@ -81,11 +81,6 @@ const Login: React.FC = () => {
           >
             Authenticate
           </button>
-
-          <div className="text-center mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Debug Credentials</p>
-            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1 italic">waris92 / waris92</p>
-          </div>
         </form>
       </div>
     </div>
