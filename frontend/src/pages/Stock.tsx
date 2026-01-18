@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 import { Layers, Plus, Search, AlertCircle, ArrowUpRight, X, History, ClipboardList, Building2, Trash2 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import CustomDatePicker from '../components/CustomDatePicker';
 
 const StockPage: React.FC = () => {
   const { products, stocks, stockTransactions, companies, addStock, deleteStockTransaction } = useData();
@@ -10,7 +11,7 @@ const StockPage: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'balance' | 'logs'>('balance');
-  const [specificDate, setSpecificDate] = useState<string>('');
+  const [specificDate, setSpecificDate] = useState<Date | null>(null); // Use Date object
 
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState<string>('');
@@ -38,10 +39,10 @@ const StockPage: React.FC = () => {
     const matchesSearch = product?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.partyName.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const logDateString = new Date(t.date).toISOString().split('T')[0];
+    const logDate = new Date(t.date);
 
     if (specificDate) {
-      return logDateString === specificDate;
+      return logDate.toDateString() === specificDate.toDateString();
     }
 
     return matchesSearch;
@@ -110,18 +111,47 @@ const StockPage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl items-center gap-2">
-            <button onClick={() => { setSpecificDate(''); }} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${!specificDate ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400'}`}>All Logs</button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Quick Day Buttons */}
+            <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl gap-1">
+              <button
+                onClick={() => setSpecificDate(new Date())}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${specificDate && specificDate.toDateString() === new Date().toDateString()
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-emerald-600'
+                  }`}
+              >
+                📅 Today
+              </button>
+              <button
+                onClick={() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setSpecificDate(yesterday);
+                }}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${specificDate && specificDate.toDateString() === new Date(new Date().setDate(new Date().getDate() - 1)).toDateString()
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-blue-600'
+                  }`}
+              >
+                ⏮️ Yesterday
+              </button>
+              <button
+                onClick={() => setSpecificDate(null)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${!specificDate ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400'
+                  }`}
+              >
+                All Logs
+              </button>
+            </div>
 
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-2 self-center" />
-
-            <div className="flex items-center gap-1">
-              <span className="text-[8px] font-black text-slate-400 uppercase">Select Date:</span>
-              <input
-                type="date"
-                value={specificDate}
-                onChange={(e) => { setSpecificDate(e.target.value); }}
-                className="bg-transparent text-[10px] font-black uppercase px-2 outline-none text-slate-600 dark:text-slate-300"
+            {/* Custom Date Picker */}
+            <div className="w-48">
+              <CustomDatePicker
+                selected={specificDate}
+                onChange={(date) => setSpecificDate(date)}
+                placeholderText="Pick a date..."
+                maxDate={new Date()}
               />
             </div>
           </div>

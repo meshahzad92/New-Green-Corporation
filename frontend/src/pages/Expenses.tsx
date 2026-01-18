@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { expenseService, Expense, ExpenseCreate } from '../utils/expenseApi';
 import { Plus, Calendar, TrendingDown, TrendingUp, Trash2, Edit2, Save, X, FileText } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import CustomDatePicker from '../components/CustomDatePicker';
 
 const ExpensesPage: React.FC = () => {
     const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Use Date object
     const [dailyTotal, setDailyTotal] = useState<number>(0);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,7 +35,8 @@ const ExpensesPage: React.FC = () => {
 
     const loadExpenses = async () => {
         try {
-            const data = await expenseService.getExpenses(selectedDate);
+            const dateString = selectedDate.toISOString().split('T')[0];
+            const data = await expenseService.getExpenses(dateString);
             setExpenses(data);
         } catch (error) {
             console.error('Failed to load expenses:', error);
@@ -43,7 +45,8 @@ const ExpensesPage: React.FC = () => {
 
     const loadDailyTotal = async () => {
         try {
-            const data = await expenseService.getDailyTotal(selectedDate);
+            const dateString = selectedDate.toISOString().split('T')[0];
+            const data = await expenseService.getDailyTotal(dateString);
             setDailyTotal(data.total);
         } catch (error) {
             console.error('Failed to load daily total:', error);
@@ -58,12 +61,13 @@ const ExpensesPage: React.FC = () => {
             // Apply the correct sign based on expense type
             const finalAmount = expenseType === 'expense' ? -Math.abs(formData.amount) : Math.abs(formData.amount);
 
+            const dateString = selectedDate.toISOString().split('T')[0];
             await expenseService.createExpense({
                 name: formData.name,
                 amount: finalAmount,
                 quantity: formData.quantity,
                 details: formData.details,
-                expense_date: selectedDate
+                expense_date: dateString
             });
 
             // Reset form
@@ -167,11 +171,11 @@ const ExpensesPage: React.FC = () => {
                         </div>
                         <h3 className="text-lg font-bold text-white">Select Date</h3>
                     </div>
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-white/20 text-white placeholder-white/70 border-2 border-white/30 focus:border-white focus:outline-none font-semibold"
+                    <CustomDatePicker
+                        selected={selectedDate}
+                        onChange={(date) => setSelectedDate(date || new Date())}
+                        placeholderText="Select date..."
+                        maxDate={new Date()}
                     />
                 </div>
 
@@ -334,7 +338,7 @@ const ExpensesPage: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-lg overflow-hidden">
                 <div className="p-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b border-slate-200 dark:border-slate-700">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                        Entries for {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        Entries for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </h2>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                         {expenses.length} {expenses.length === 1 ? 'entry' : 'entries'}

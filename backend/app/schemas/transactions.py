@@ -32,7 +32,17 @@ class SaleBase(BaseModel):
 
 class SaleCreate(SaleBase):
     # purchase_price and total_amount will be handled in the CRUD logic
-    pass
+    # created_at is optional - if not provided, will use current time
+    created_at: Optional[datetime] = None
+
+class SaleUpdate(BaseModel):
+    """Schema for updating an existing sale - all fields are optional"""
+    product_id: Optional[UUID] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    quantity: Optional[int] = None
+    selling_price: Optional[Decimal] = None
+    payment_type: Optional[Literal['Credit', 'Debit']] = None
 
 class Sale(SaleBase):
     id: UUID
@@ -41,3 +51,4 @@ class Sale(SaleBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+

@@ -19,7 +19,8 @@
 .figma-datepicker-input,
 input.figma-datepicker-input,
 .react-datepicker-wrapper input.figma-datepicker-input,
-.figma-datepicker-wrapper input.figma-datepicker-input {
+.figma-datepicker-wrapper input.figma-datepicker-input,
+.react-datepicker__input-container input {
   width: 100% !important;
   padding: 0.75rem 1rem !important;
   border-radius: 0.75rem !important;
@@ -28,7 +29,7 @@ input.figma-datepicker-input,
   transition: all 0.2s ease !important;
   outline: none !important;
   cursor: pointer !important;
-  /* FORCE WHITE - Maximum Priority */
+  /* FORCE WHITE in light mode - Maximum Priority */
   background: white !important;
   background-color: #ffffff !important;
   border: 1px solid #e5e7eb !important;
@@ -46,35 +47,26 @@ input.figma-datepicker-input:focus {
   box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.1) !important;
 }
 
-/* Light Mode - Extra Reinforcement */
-.light-mode .figma-datepicker-input,
-.light-mode input.figma-datepicker-input,
-.figma-datepicker-wrapper.light-mode .figma-datepicker-input,
-.figma-datepicker-wrapper.light-mode input.figma-datepicker-input {
-  background: white !important;
-  background-color: #ffffff !important;
-  border-color: #e5e7eb !important;
-  color: #1f2937 !important;
-}
-
-/* Dark Mode Input - Only Override When Dark */
-.dark-mode .figma-datepicker-input,
-.dark-mode input.figma-datepicker-input,
-.figma-datepicker-wrapper.dark-mode .figma-datepicker-input,
-.figma-datepicker-wrapper.dark-mode input.figma-datepicker-input {
+/* Dark Mode Input - Use Tailwind's dark class */
+.dark .figma-datepicker-input,
+.dark input.figma-datepicker-input,
+.dark .react-datepicker-wrapper input.figma-datepicker-input,
+.dark .figma-datepicker-wrapper input.figma-datepicker-input,
+.dark .react-datepicker__input-container input,
+:is(.dark .figma-datepicker-wrapper) input {
   background: #374151 !important;
   background-color: #374151 !important;
   border-color: #4b5563 !important;
   color: #f3f4f6 !important;
 }
 
-.dark-mode .figma-datepicker-input:hover,
-.dark-mode input.figma-datepicker-input:hover {
+.dark .figma-datepicker-input:hover,
+.dark input.figma-datepicker-input:hover {
   border-color: #6b7280 !important;
 }
 
-.dark-mode .figma-datepicker-input:focus,
-.dark-mode input.figma-datepicker-input:focus {
+.dark .figma-datepicker-input:focus,
+.dark input.figma-datepicker-input:focus {
   border-color: #9ca3af !important;
   box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.1) !important;
 }
@@ -96,7 +88,7 @@ input.figma-datepicker-input::placeholder {
   color: #6b7280;
 }
 
-.dark-mode .figma-calendar-icon {
+.dark .figma-calendar-icon {
   color: #9ca3af;
 }
 
@@ -116,9 +108,9 @@ input.figma-datepicker-input::placeholder {
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Dark Mode Calendar - when wrapper has dark-mode class */
-.dark-mode~.react-datepicker-popper .figma-calendar,
-.dark-mode .react-datepicker-popper .figma-calendar {
+/* Dark Mode Calendar - Use Tailwind's dark class */
+.dark .react-datepicker-popper .figma-calendar,
+:is(.dark) .react-datepicker-popper .figma-calendar {
   background: #4b5563 !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
     0 4px 6px -2px rgba(0, 0, 0, 0.2);
@@ -139,7 +131,8 @@ input.figma-datepicker-input::placeholder {
   border-bottom: 1px solid #f3f4f6;
 }
 
-.dark-mode~.react-datepicker-popper .figma-calendar-header {
+.dark .react-datepicker-popper .figma-calendar-header,
+:is(.dark) .react-datepicker-popper .figma-calendar-header {
   background: #4b5563 !important;
   border-bottom: 1px solid #374151 !important;
 }
@@ -153,7 +146,7 @@ input.figma-datepicker-input::placeholder {
   color: #374151;
 }
 
-.dark-mode~.react-datepicker-popper .figma-header-text {
+.dark .react-datepicker-popper .figma-header-text {
   color: #f3f4f6 !important;
 }
 
@@ -178,11 +171,11 @@ input.figma-datepicker-input::placeholder {
   background: #f9fafb;
 }
 
-.dark-mode~.react-datepicker-popper .figma-nav-button {
+.dark .react-datepicker-popper .figma-nav-button {
   color: #d1d5db !important;
 }
 
-.dark-mode~.react-datepicker-popper .figma-nav-button:hover:not(:disabled) {
+.dark .react-datepicker-popper .figma-nav-button:hover:not(:disabled) {
   color: #f3f4f6 !important;
   background: #374151 !important;
 }
@@ -204,7 +197,7 @@ input.figma-datepicker-input::placeholder {
   background: #ffffff;
 }
 
-.dark-mode~.react-datepicker-popper .react-datepicker__day-names {
+.dark .react-datepicker-popper .react-datepicker__day-names {
   background: #4b5563 !important;
 }
 
@@ -230,7 +223,7 @@ input.figma-datepicker-input::placeholder {
   background: #ffffff;
 }
 
-.dark-mode~.react-datepicker-popper .react-datepicker__month {
+.dark .react-datepicker-popper .react-datepicker__month {
   background: #4b5563 !important;
 }
 
@@ -272,11 +265,11 @@ input.figma-datepicker-input::placeholder {
 }
 
 /* Dark Mode Days */
-.dark-mode~.react-datepicker-popper .react-datepicker__day {
+.dark .react-datepicker-popper .react-datepicker__day {
   color: #f3f4f6 !important;
 }
 
-.dark-mode~.react-datepicker-popper .react-datepicker__day:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected) {
+.dark .react-datepicker-popper .react-datepicker__day:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected) {
   background: #374151 !important;
   color: #ffffff !important;
 }
@@ -314,7 +307,7 @@ input.figma-datepicker-input::placeholder {
   color: #d1d5db;
 }
 
-.dark-mode~.react-datepicker-popper .react-datepicker__day--outside-month {
+.dark .react-datepicker-popper .react-datepicker__day--outside-month {
   color: #6b7280 !important;
 }
 
@@ -345,7 +338,7 @@ input.figma-datepicker-input::placeholder {
   color: #991b1b;
 }
 
-.dark-mode~.react-datepicker-popper .react-datepicker__day--in-range {
+.dark .react-datepicker-popper .react-datepicker__day--in-range {
   background: #7f1d1d !important;
   color: #fca5a5 !important;
 }

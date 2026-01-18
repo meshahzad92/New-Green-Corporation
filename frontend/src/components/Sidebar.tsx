@@ -10,6 +10,7 @@ import {
   Layers,
   ShoppingCart,
   Wallet,
+  Receipt,
   BarChart3,
   LogOut,
   Sun,
@@ -26,7 +27,7 @@ const navItems = [
   { path: '/products', label: 'Products', icon: Package },
   { path: '/stock', label: 'Stock', icon: Layers },
   { path: '/sales', label: 'Sales', icon: ShoppingCart },
-  { path: '/expenses', label: 'Expenses', icon: Wallet },
+  { path: '/expenses', label: 'Expenses', icon: Receipt },
   { path: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 
@@ -91,7 +92,7 @@ const Sidebar: React.FC = () => {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-emerald-900 dark:bg-slate-900 flex items-center justify-between px-6 z-[60] text-white">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-emerald-900 dark:bg-slate-900 flex items-center justify-between px-6 z-50 text-white">
         <div className="flex items-center gap-2">
           <Sprout className="w-6 h-6 text-emerald-400" />
           <span className="font-black text-sm uppercase tracking-tighter">AgriManage</span>
@@ -106,13 +107,13 @@ const Sidebar: React.FC = () => {
         {sidebarContent}
       </div>
 
-      {/* Sidebar Mobile Overlay */}
+      {/* Sidebar Mobile Overlay - Covers everything including top bar */}
       {isOpen && (
-        <div className="lg:hidden fixed inset-0 z-[55] bg-slate-900/60 backdrop-blur-sm" onClick={toggleSidebar} />
+        <div className="lg:hidden fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm" onClick={toggleSidebar} />
       )}
 
-      {/* Mobile Sidebar Content */}
-      <div className={`lg:hidden fixed top-0 left-0 h-full w-64 z-[58] transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Mobile Sidebar Content - Above overlay */}
+      <div className={`lg:hidden fixed top-0 left-0 h-full w-64 z-[70] transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {sidebarContent}
       </div>
     </>

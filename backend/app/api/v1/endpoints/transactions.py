@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from app.db.session import get_db
-from app.schemas.transactions import Sale, SaleCreate, StockTransaction, StockTransactionCreate
+from app.schemas.transactions import Sale, SaleCreate, SaleUpdate, StockTransaction, StockTransactionCreate
 from app.crud import crud_transaction
 
 router = APIRouter()
@@ -25,6 +25,10 @@ def read_sales(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 @router.post("/sales", response_model=Sale, status_code=status.HTTP_201_CREATED)
 def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
     return crud_transaction.create_sale(db=db, sale=sale)
+
+@router.put("/sales/{sale_id}", response_model=Sale)
+def update_sale(sale_id: UUID, sale: SaleUpdate, db: Session = Depends(get_db)):
+    return crud_transaction.update_sale(db=db, sale_id=sale_id, sale_update=sale)
 
 @router.delete("/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(transaction_id: UUID, db: Session = Depends(get_db)):

@@ -18,7 +18,10 @@ interface DataContextType {
   updateProduct: (id: string, product: Omit<Product, 'id'>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number) => Promise<void>;
-  addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string) => Promise<boolean>;
+  addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date) => Promise<boolean>;
+  updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string }>) => Promise<boolean>;
+  deleteSale: (id: string) => Promise<void>;
+  deleteStockTransaction: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -186,20 +189,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addSale = async (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string): Promise<boolean> => {
+  const addSale = async (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date): Promise<boolean> => {
     try {
-      await api.post('/sales', {
+      const payload: any = {
         product_id: productId,
         quantity,
         customer_name: customerName,
         customer_phone: customerPhone,
         selling_price: sellingPrice,
         payment_type: paymentType
-      });
+      };
+
+      // Add custom date if provided
+      if (saleDate) {
+        payload.created_at = saleDate.toISOString();
+      }
+
+      await api.post('/sales', payload);
       await refreshData();
       return true;
     } catch (error) {
       console.error('Failed to add sale:', error);
+      return false;
+    }
+  };
+
+  const updateSale = async (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string }>): Promise<boolean> => {
+    try {
+      const payload: any = {};
+      if (updates.productId !== undefined) payload.product_id = updates.productId;
+      if (updates.quantity !== undefined) payload.quantity = updates.quantity;
+      if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
+      if (updates.customerPhone !== undefined) payload.customer_phone = updates.customerPhone;
+      if (updates.sellingPrice !== undefined) payload.selling_price = updates.sellingPrice;
+      if (updates.paymentType !== undefined) payload.payment_type = updates.paymentType;
+
+      await api.put(`/sales/${id}`, payload);
+      await refreshData();
+      return true;
+    } catch (error) {
+      console.error('Failed to update sale:', error);
       return false;
     }
   };
@@ -228,7 +257,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addCompany, updateCompany, deleteCompany,
       addProduct, updateProduct, deleteProduct,
       addStock, deleteStockTransaction,
-      addSale, deleteSale
+      addSale, updateSale, deleteSale
     }}>
       {children}
     </DataContext.Provider>
