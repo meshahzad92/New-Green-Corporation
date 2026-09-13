@@ -48,7 +48,8 @@ const Products: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      await updateProduct(editingId, { ...formData, purchasePrice: 0 }); // purchasePrice managed via Stock entries
+      const existingProduct = products.find(p => p.id === editingId);
+      await updateProduct(editingId, { ...formData, purchasePrice: existingProduct?.purchasePrice || 0 });
     } else {
       await addProduct(formData);
     }

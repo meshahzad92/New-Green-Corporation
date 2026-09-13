@@ -46,7 +46,7 @@ const StockPage: React.FC = () => {
     }
 
     return matchesSearch;
-  });
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleAddStock = (e: React.FormEvent) => {
     e.preventDefault();

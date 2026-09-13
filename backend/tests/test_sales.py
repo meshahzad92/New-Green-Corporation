@@ -65,7 +65,7 @@ class TestSalesEndpoints:
             headers=auth_headers
         )
         
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["customer_name"] == "John Farmer"
         assert data["quantity"] == 10
@@ -84,7 +84,7 @@ class TestSalesEndpoints:
         
         response = client.post("/api/v1/sales/", json=sale_data, headers=auth_headers)
         
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["payment_type"] == "Credit"
     
@@ -122,7 +122,7 @@ class TestSalesEndpoints:
         # Delete sale (soft delete)
         response = client.delete(f"/api/v1/sales/{sale_id}", headers=auth_headers)
         
-        assert response.status_code == 200
+        assert response.status_code == 204
     
     def test_sale_insufficient_stock(self, client, auth_headers, test_product_with_stock):
         """Test that sale fails when insufficient stock"""
@@ -150,7 +150,7 @@ class TestSalesEndpoints:
             "selling_price": 1000.00,
             "payment_type": "Debit"
         }, headers=auth_headers)
-        assert response1.status_code == 200
+        assert response1.status_code == 201
         
         # Invalid phone (if validation exists)
         response2 = client.post("/api/v1/sales/", json={

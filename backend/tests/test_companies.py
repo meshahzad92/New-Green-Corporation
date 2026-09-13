@@ -20,7 +20,7 @@ class TestCompanyEndpoints:
             headers=auth_headers
         )
         
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["name"] == company_data["name"]
         assert "id" in data
@@ -32,11 +32,11 @@ class TestCompanyEndpoints:
         
         # Create first company
         response1 = client.post("/api/v1/companies/", json=company_data, headers=auth_headers)
-        assert response1.status_code == 200
+        assert response1.status_code == 201
         
         # Create second company with same name (should succeed)
         response2 = client.post("/api/v1/companies/", json=company_data, headers=auth_headers)
-        assert response2.status_code == 200
+        assert response2.status_code == 201
         
         # They should have different IDs
         assert response1.json()["id"] != response2.json()["id"]
@@ -71,7 +71,7 @@ class TestCompanyEndpoints:
         # Get the company by ID
         response = client.get(f"/api/v1/companies/{company_id}", headers=auth_headers)
         
-        assert response.status_code == 200
+        assert response.status_code == 204
         data = response.json()
         assert data["id"] == company_id
         assert data["name"] == "Specific Test Company"

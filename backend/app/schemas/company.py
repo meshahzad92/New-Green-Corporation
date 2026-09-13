@@ -1,10 +1,10 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
 class CompanyBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     logo: Optional[str] = None
 
 class CompanyCreate(CompanyBase):

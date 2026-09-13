@@ -82,7 +82,7 @@ const SalesPage: React.FC = () => {
         return saleDate.getFullYear() === now.getFullYear();
       }
       return true;
-    });
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, products, searchTerm, timeFilter, paymentFilter, specificDate]);
 
   // Product Summary: Calculate quantity sold per product for the filtered sales

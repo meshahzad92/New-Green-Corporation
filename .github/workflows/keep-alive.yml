@@ -1,0 +1,21 @@
+name: Keep Services Alive
+
+# Fires every 10 minutes to prevent Render free-tier cold starts
+# and to keep the Supabase project from auto-pausing after 1 week of inactivity
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # Every 10 minutes, 24/7
+  workflow_dispatch:           # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  ping:
+    name: Ping Render Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        # -f fails the command if HTTP status is 4xx/5xx
+        # || echo ... ensures the workflow step always exits 0 so it stays green
+        run: |
+          curl -f https://agrimanage-backend.onrender.com/api/v1/health \
+            && echo "✅ Backend is alive!" \
+            || echo "⚠️  Backend ping failed (may be starting up)"

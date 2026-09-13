@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -6,11 +6,11 @@ from decimal import Decimal
 
 # Base Product Schema
 class ProductBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     category: Optional[str] = None
-    unit: str
-    purchase_price: Decimal = Decimal('0.00')
-    min_stock: int = 5
+    unit: str = Field(..., min_length=1)
+    purchase_price: Decimal = Field(default=Decimal('0.00'), ge=0)
+    min_stock: int = Field(default=5, ge=0)
     company_id: Optional[UUID] = None
 
 # Create Product Schema
@@ -19,11 +19,11 @@ class ProductCreate(ProductBase):
 
 # Update Product Schema
 class ProductUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1)
     category: Optional[str] = None
-    unit: Optional[str] = None
-    purchase_price: Optional[Decimal] = None
-    min_stock: Optional[int] = None
+    unit: Optional[str] = Field(default=None, min_length=1)
+    purchase_price: Optional[Decimal] = Field(default=None, ge=0)
+    min_stock: Optional[int] = Field(default=None, ge=0)
     company_id: Optional[UUID] = None
 
 # Response Product Schema

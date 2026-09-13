@@ -49,7 +49,7 @@ class TestStockEndpoints:
             headers=auth_headers
         )
         
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["quantity"] == 50
         assert data["type"] == "IN"
@@ -100,7 +100,7 @@ class TestStockEndpoints:
             headers=auth_headers
         )
         
-        assert response.status_code == 200
+        assert response.status_code == 204
         
         # Transaction should not appear in regular list (soft deleted)
         list_response = client.get("/api/v1/transactions/", headers=auth_headers)

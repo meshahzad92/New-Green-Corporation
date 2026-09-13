@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.models.models import StockTransaction, Sale, Product
         
 from app.schemas import transactions
@@ -6,25 +7,40 @@ from uuid import UUID
 from fastapi import HTTPException
 from datetime import datetime
 
+def get_product_stock(db: Session, product_id: UUID):
+    in_stock = db.query(func.coalesce(func.sum(StockTransaction.quantity), 0)).filter(
+        StockTransaction.product_id == product_id,
+        StockTransaction.type == 'IN',
+        StockTransaction.is_deleted == False
+    ).scalar()
+    out_stock = db.query(func.coalesce(func.sum(StockTransaction.quantity), 0)).filter(
+        StockTransaction.product_id == product_id,
+        StockTransaction.type == 'OUT',
+        StockTransaction.is_deleted == False
+    ).scalar()
+    return int(in_stock - out_stock)
+
 # --- Stock Transaction CRUD ---
 def get_transactions(db: Session, skip: int = 0, limit: int = 100, include_deleted: bool = False):
-    """Get stock transactions, by default excludes soft-deleted records"""
+    """Get stock transactions, by default excludes soft-deleted records (most recent first)"""
     query = db.query(StockTransaction).filter(StockTransaction.product_id != None)
     
     if not include_deleted:
         query = query.filter(StockTransaction.is_deleted == False)
     
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(StockTransaction.created_at.desc()).offset(skip).limit(limit).all()
 
 def create_transaction(db: Session, transaction: transactions.StockTransactionCreate):
+    db_product = db.query(Product).filter(Product.id == transaction.product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
     db_transaction = StockTransaction(**transaction.model_dump())
     db.add(db_transaction)
     
     # Update product's purchase price if it's an 'IN' transaction and price is provided
     if transaction.type == 'IN' and transaction.purchase_price:
-        db_product = db.query(Product).filter(Product.id == transaction.product_id).first()
-        if db_product:
-            db_product.purchase_price = transaction.purchase_price
+        db_product.purchase_price = transaction.purchase_price
             
     db.commit()
     db.refresh(db_transaction)
@@ -48,19 +64,22 @@ def delete_transaction(db: Session, transaction_id: UUID):
 
 # --- Sales CRUD ---
 def get_sales(db: Session, skip: int = 0, limit: int = 100, include_deleted: bool = False):
-    """Get sales, by default excludes soft-deleted records"""
+    """Get sales, by default excludes soft-deleted records (most recent first)"""
     query = db.query(Sale).filter(Sale.product_id != None)
     
     if not include_deleted:
         query = query.filter(Sale.is_deleted == False)
     
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(Sale.created_at.desc()).offset(skip).limit(limit).all()
 
 def create_sale(db: Session, sale: transactions.SaleCreate):
     # Fetch product to get historical purchase price
     db_product = db.query(Product).filter(Product.id == sale.product_id).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    if get_product_stock(db, sale.product_id) < sale.quantity:
+        raise HTTPException(status_code=400, detail="Insufficient stock")
     
     # Calculate total amount
     total_amount = sale.selling_price * sale.quantity
@@ -125,6 +144,16 @@ def update_sale(db: Session, sale_id: UUID, sale_update: transactions.SaleUpdate
         if not db_product:
             raise HTTPException(status_code=404, detail="Product not found")
         db_sale.purchase_price = db_product.purchase_price
+
+    if quantity_changed or product_changed:
+        target_product_id = db_sale.product_id
+        existing_sale_quantity = db.query(func.coalesce(func.sum(StockTransaction.quantity), 0)).filter(
+            StockTransaction.sale_id == sale_id,
+            StockTransaction.is_deleted == False
+        ).scalar()
+        available_stock = get_product_stock(db, target_product_id) + int(existing_sale_quantity)
+        if available_stock < db_sale.quantity:
+            raise HTTPException(status_code=400, detail="Insufficient stock")
     
     # Recalculate total_amount if quantity or selling_price changed
     if sale_update.quantity is not None or sale_update.selling_price is not None:

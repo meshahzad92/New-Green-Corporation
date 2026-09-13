@@ -28,24 +28,41 @@ def read_products(
     limit: int = 100, 
     search: str = None, 
     category: str = None, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
 ):
     products = crud_product.get_products(
         db, skip=skip, limit=limit, search=search, category=category
     )
     return products
 
+@router.get("/{product_id}", response_model=Product)
+def read_product(
+    product_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    db_product = crud_product.get_product(db, product_id=product_id)
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return db_product
+
 @router.post("/", response_model=Product, status_code=status.HTTP_201_CREATED)
 def create_product(
     product: ProductCreate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
 ):
-    return crud_product.create_product(db=db, product=product)
+    db_product = crud_product.create_product(db=db, product=product)
+    if db_product is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return db_product
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: UUID, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
 ):
     db_product = crud_product.delete_product(db, product_id=product_id)
     if db_product is None:

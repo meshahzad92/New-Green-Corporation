@@ -1,6 +1,6 @@
 from sqlalchemy import func, case, and_
 from sqlalchemy.orm import Session
-from app.models.models import Product, StockTransaction
+from app.models.models import Company, Product, StockTransaction
 from app.schemas.product import ProductCreate, ProductUpdate
 from uuid import UUID
 from typing import Optional
@@ -60,9 +60,29 @@ def get_products(
     return products
 
 def get_product(db: Session, product_id: UUID):
-    return db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        return None
+
+    in_stock = db.query(func.coalesce(func.sum(StockTransaction.quantity), 0)).filter(
+        StockTransaction.product_id == product_id,
+        StockTransaction.type == 'IN',
+        StockTransaction.is_deleted == False,
+    ).scalar()
+    out_stock = db.query(func.coalesce(func.sum(StockTransaction.quantity), 0)).filter(
+        StockTransaction.product_id == product_id,
+        StockTransaction.type == 'OUT',
+        StockTransaction.is_deleted == False,
+    ).scalar()
+    product.current_stock = int(in_stock - out_stock)
+    return product
 
 def create_product(db: Session, product: ProductCreate):
+    if product.company_id:
+        company = db.query(Company).filter(Company.id == product.company_id).first()
+        if not company:
+            return None
+
     db_product = Product(
         name=product.name,
         category=product.category,

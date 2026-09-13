@@ -11,7 +11,8 @@ ENV/
 __pycache__/
 *.py[cod]
 *$py.class
-
+backend\.env
+frontend\.env
 # Database files
 *.db
 *.sqlite

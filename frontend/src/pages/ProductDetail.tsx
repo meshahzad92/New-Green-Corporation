@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { ArrowLeft, Package, ShoppingCart, Layers, Plus, TrendingUp, User, Building2, Calendar, History, Phone, CreditCard, Wallet, Banknote, X, Trash2 } from 'lucide-react';
@@ -16,7 +16,7 @@ const ProductDetail: React.FC = () => {
   const productSales = sales.filter(s => s.productId === productId);
   const productLogs = stockTransactions.filter(t => t.productId === productId && t.type === 'IN');
 
-  const combinedHistory = React.useMemo(() => {
+  const combinedHistory = useMemo(() => {
     const history = [
       ...productLogs.map(l => ({ ...l, entryType: 'REFILL' as const })),
       ...productSales.map(s => ({ ...s, entryType: 'SALE' as const }))
@@ -24,13 +24,40 @@ const ProductDetail: React.FC = () => {
     return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [productLogs, productSales]);
 
+  const totalArrivals = useMemo(() => {
+    const fromLogs = productLogs.reduce((sum, l) => sum + (l.quantity || 0), 0);
+    return Math.max(stock?.totalIn || 0, fromLogs);
+  }, [stock?.totalIn, productLogs]);
+
+  const totalSalesCount = useMemo(() => {
+    const fromSales = productSales.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    return Math.max(stock?.totalOut || 0, fromSales);
+  }, [stock?.totalOut, productSales]);
+
+  const latestCost = useMemo(() => {
+    if (product?.purchasePrice && product.purchasePrice > 0) {
+      return product.purchasePrice;
+    }
+    if (productLogs.length > 0 && productLogs[0].purchasePrice > 0) {
+      return productLogs[0].purchasePrice;
+    }
+    return 0;
+  }, [product?.purchasePrice, productLogs]);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
 
   // Refill Form
   const [addQty, setAddQty] = useState('0');
   const [addParty, setAddParty] = useState('');
-  const [addPrice, setAddPrice] = useState(product?.purchasePrice.toString() || '0');
+  const [addPrice, setAddPrice] = useState(product?.purchasePrice?.toString() || '0');
+
+  useEffect(() => {
+    if (product) {
+      const price = latestCost > 0 ? latestCost : (product.purchasePrice || 0);
+      setAddPrice(price.toString());
+    }
+  }, [product?.id, latestCost]);
 
   // Sell Form
   const [sellQty, setSellQty] = useState('1');
@@ -96,7 +123,7 @@ const ProductDetail: React.FC = () => {
     else setter(val);
   };
 
-  const inventoryValuation = (stock?.remaining || 0) * product.purchasePrice;
+  const inventoryValuation = (stock?.remaining || 0) * latestCost;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -136,7 +163,7 @@ const ProductDetail: React.FC = () => {
           <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
             <div className="flex justify-between items-center text-xs font-bold text-slate-500 mb-2">
               <span>Latest Cost</span>
-              <span className="text-slate-900 dark:text-white font-black">Rs. {product.purchasePrice.toLocaleString()}</span>
+              <span className="text-slate-900 dark:text-white font-black">Rs. {latestCost.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center text-xs font-bold text-slate-500">
               <span>Unit Label</span>
@@ -149,11 +176,11 @@ const ProductDetail: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-center space-y-6">
           <div>
             <p className="text-[10px] font-black uppercase text-emerald-600">Total Arrivals</p>
-            <p className="text-2xl font-black">{stock?.totalIn} <span className="text-xs font-bold opacity-50 uppercase">{product.unit}</span></p>
+            <p className="text-2xl font-black">{totalArrivals} <span className="text-xs font-bold opacity-50 uppercase">{product.unit}</span></p>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase text-orange-600">Total Sales</p>
-            <p className="text-2xl font-black">{stock?.totalOut} <span className="text-xs font-bold opacity-50 uppercase">{product.unit}</span></p>
+            <p className="text-2xl font-black">{totalSalesCount} <span className="text-xs font-bold opacity-50 uppercase">{product.unit}</span></p>
           </div>
         </div>
       </div>

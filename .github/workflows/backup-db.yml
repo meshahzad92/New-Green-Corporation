@@ -1,0 +1,47 @@
+name: Weekly Database Backup
+
+# Runs every Sunday at 2:00 AM PKT (21:00 UTC Saturday → 02:00 PKT Sunday)
+# PKT = UTC+5, so 2 AM PKT = 9 PM UTC (previous day)
+on:
+  schedule:
+    - cron: '0 21 * * 6'    # 21:00 UTC Saturday = 02:00 PKT Sunday
+  workflow_dispatch:          # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  backup:
+    name: Dump Supabase DB and Upload to Google Drive
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      - name: Dump database from Supabase
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          FILENAME="agrimanage_backup_$(date +%Y%m%d_%H%M%S).dump"
+          echo "BACKUP_FILENAME=$FILENAME" >> $GITHUB_ENV
+
+          pg_dump \
+            -h db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co \
+            -U postgres \
+            -d postgres \
+            -F c \
+            -f "$FILENAME"
+
+          echo "✅ Database dumped to $FILENAME ($(du -sh $FILENAME | cut -f1))"
+
+      - name: Upload backup to Google Drive
+        uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          filename: ${{ env.BACKUP_FILENAME }}
+          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+          overwrite: false
+          mimeType: application/octet-stream
+
+      - name: Confirm upload
+        run: echo "✅ Backup ${{ env.BACKUP_FILENAME }} uploaded to Google Drive successfully!"

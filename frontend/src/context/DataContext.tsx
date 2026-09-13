@@ -52,24 +52,48 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: c.created_at
       })).sort((a: any, b: any) => a.name.localeCompare(b.name)));
 
-      // Map backend products to frontend Product type
-      const mappedProducts: Product[] = prodRes.data.map((p: any) => ({
-        id: p.id,
-        companyId: p.company_id,
-        name: p.name,
-        category: p.category,
-        unit: p.unit,
-        purchasePrice: parseFloat(p.purchase_price),
-        minStock: p.min_stock
-      }));
+      // Map backend products to frontend Product type with fallback for purchase_price
+      const mappedProducts: Product[] = prodRes.data.map((p: any) => {
+        let pPrice = parseFloat(p.purchase_price) || 0;
+        if (pPrice <= 0) {
+          const productInTransactions = transRes.data
+            .filter((t: any) => t.product_id === p.id && t.type === 'IN' && parseFloat(t.purchase_price) > 0)
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          if (productInTransactions.length > 0) {
+            pPrice = parseFloat(productInTransactions[0].purchase_price);
+          }
+        }
+        return {
+          id: p.id,
+          companyId: p.company_id,
+          name: p.name,
+          category: p.category,
+          unit: p.unit,
+          purchasePrice: pPrice,
+          minStock: p.min_stock
+        };
+      });
 
-      // Map backend products to Stock type (using current_stock returned from backend)
-      const mappedStocks: Stock[] = prodRes.data.map((p: any) => ({
-        productId: p.id,
-        totalIn: 0, // Backend doesn't return totalIn/Out directly in list, but we have current_stock
-        totalOut: 0,
-        remaining: p.current_stock || 0
-      }));
+      // Map backend products to Stock type (computing arrivals and sales)
+      const mappedStocks: Stock[] = prodRes.data.map((p: any) => {
+        const totalIn = transRes.data
+          .filter((t: any) => t.product_id === p.id && t.type === 'IN')
+          .reduce((sum: number, t: any) => sum + (t.quantity || 0), 0);
+        const outFromTrans = transRes.data
+          .filter((t: any) => t.product_id === p.id && t.type === 'OUT')
+          .reduce((sum: number, t: any) => sum + (t.quantity || 0), 0);
+        const outFromSales = saleRes.data
+          .filter((s: any) => s.product_id === p.id)
+          .reduce((sum: number, s: any) => sum + (s.quantity || 0), 0);
+        const totalOut = Math.max(outFromTrans, outFromSales);
+
+        return {
+          productId: p.id,
+          totalIn,
+          totalOut,
+          remaining: p.current_stock || 0
+        };
+      });
 
       setProducts(mappedProducts);
       setStocks(mappedStocks);
@@ -81,7 +105,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         purchasePrice: parseFloat(t.purchase_price || 0),
         type: t.type,
         date: t.created_at
-      })));
+      })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setSales(saleRes.data.map((s: any) => ({
         id: s.id,
         productId: s.product_id,
@@ -93,7 +117,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalAmount: parseFloat(s.total_amount),
         paymentType: s.payment_type,
         date: s.created_at
-      })));
+      })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -151,14 +175,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProduct = async (id: string, productData: Omit<Product, 'id'>) => {
     try {
-      await api.put(`/products/${id}`, {
+      const payload: any = {
         name: productData.name,
         category: productData.category,
         unit: productData.unit,
-        purchase_price: productData.purchasePrice,
         min_stock: productData.minStock,
         company_id: productData.companyId
-      });
+      };
+      if (productData.purchasePrice && productData.purchasePrice > 0) {
+        payload.purchase_price = productData.purchasePrice;
+      }
+      await api.put(`/products/${id}`, payload);
       await refreshData();
     } catch (error) {
       console.error('Failed to update product:', error);

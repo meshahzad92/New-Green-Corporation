@@ -6,7 +6,7 @@ from app.db.session import get_db
 from app.schemas.company import Company, CompanyCreate, CompanyUpdate
 from app.crud import crud_company
 from app.api import deps
-from app.models.models import User
+from app.models.models import Product, User
 
 router = APIRouter()
 
@@ -14,9 +14,21 @@ router = APIRouter()
 def read_companies(
     skip: int = 0, 
     limit: int = 100, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
 ):
     return crud_company.get_companies(db, skip=skip, limit=limit)
+
+@router.get("/{company_id}", response_model=Company)
+def read_company(
+    company_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    db_company = crud_company.get_company(db, company_id=company_id)
+    if not db_company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return db_company
 
 @router.post("/", response_model=Company, status_code=status.HTTP_201_CREATED)
 def create_company(
@@ -44,6 +56,10 @@ def delete_company(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
+    has_products = db.query(Product.id).filter(Product.company_id == company_id).first()
+    if has_products:
+        raise HTTPException(status_code=400, detail="Company has products and cannot be deleted")
+
     db_company = crud_company.delete_company(db, company_id=company_id)
     if not db_company:
         raise HTTPException(status_code=404, detail="Company not found")

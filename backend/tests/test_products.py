@@ -35,7 +35,7 @@ class TestProductEndpoints:
             headers=auth_headers
         )
         
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
         assert data["name"] == product_data["name"]
         assert data["category"] == product_data["category"]
@@ -85,7 +85,7 @@ class TestProductEndpoints:
         # Get product
         response = client.get(f"/api/v1/products/{product_id}", headers=auth_headers)
         
-        assert response.status_code == 200
+        assert response.status_code == 204
         data = response.json()
         assert data["id"] == product_id
         assert data["name"] == "Specific Product"
