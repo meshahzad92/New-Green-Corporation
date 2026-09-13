@@ -19,10 +19,11 @@ class Settings(BaseSettings):
     API_PORT: int = int(os.getenv("API_PORT", "8000"))
     
     # CORS Settings - Specific allowed origins for production
-    # Includes Vercel frontend, Render backend, and localhost for local dev
+    # Includes custom domain, Vercel frontend, Render backend, and localhost for local dev
     CORS_ORIGINS: List[str] = [
+        "https://www.newgreencorporation.app",
+        "https://newgreencorporation.app",
         "https://new-green-corporation.vercel.app",
-        "https://*.onrender.com",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
