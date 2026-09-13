@@ -37,9 +37,20 @@ const Products: React.FC = () => {
     productName: ''
   });
 
-  const categories = ['Fertilizer', 'Seeds', 'Pesticide', 'Tools', 'Other'];
+  const [modalError, setModalError] = useState('');
 
-  const filteredProducts = products
+  // Deduplicate products: ensure only 1 product of same name and same company exists in display
+  const uniqueProducts = React.useMemo(() => {
+    const seen = new Set<string>();
+    return products.filter(p => {
+      const key = `${p.companyId}-${p.name.trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [products]);
+
+  const filteredProducts = uniqueProducts
     .filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCompany = selectedCompany === 'all' || p.companyId === selectedCompany;
@@ -49,17 +60,33 @@ const Products: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setModalError('');
+
+    const trimmedName = formData.name.trim().toLowerCase();
+    const isDuplicate = products.some(p => 
+      p.companyId === formData.companyId &&
+      p.name.trim().toLowerCase() === trimmedName &&
+      p.id !== editingId
+    );
+
+    if (isDuplicate) {
+      const compObj = companies.find(c => c.id === formData.companyId);
+      setModalError(`A product named "${formData.name.trim()}" already exists for ${compObj?.name || 'the selected company'}.`);
+      return;
+    }
+
     if (editingId) {
       const existingProduct = products.find(p => p.id === editingId);
-      await updateProduct(editingId, { ...formData, purchasePrice: existingProduct?.purchasePrice || 0 });
+      await updateProduct(editingId, { ...formData, name: formData.name.trim(), purchasePrice: existingProduct?.purchasePrice || 0 });
     } else {
-      await addProduct(formData);
+      await addProduct({ ...formData, name: formData.name.trim() });
     }
     handleClose();
   };
 
   const handleOpenAddModal = () => {
     setEditingId(null);
+    setModalError('');
     setFormData({
       companyId: selectedCompany !== 'all' ? selectedCompany : '',
       name: '',
@@ -73,6 +100,7 @@ const Products: React.FC = () => {
   const handleEdit = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     setEditingId(product.id);
+    setModalError('');
     setFormData({
       companyId: product.companyId,
       name: product.name,
@@ -85,6 +113,7 @@ const Products: React.FC = () => {
 
   const handleClose = () => {
     setEditingId(null);
+    setModalError('');
     setFormData({
       companyId: '',
       name: '',
@@ -212,6 +241,11 @@ const Products: React.FC = () => {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {modalError && (
+                <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-4 rounded-2xl text-sm border border-rose-100 dark:border-rose-900/30 font-bold animate-in slide-in-from-top-2">
+                  {modalError}
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Product Name</label>
                 <input

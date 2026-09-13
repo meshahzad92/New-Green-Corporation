@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from uuid import UUID
 from app.db.session import get_db
 from app.schemas.product import Product, ProductCreate, ProductUpdate
 from app.crud import crud_product
 from app.api import deps
-from app.models.models import User
+from app.models.models import User, Product as DBProduct
 
 router = APIRouter()
 
@@ -17,6 +18,18 @@ def update_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
+    if product.name and product.company_id:
+        existing = db.query(DBProduct).filter(
+            func.lower(DBProduct.name) == func.lower(product.name.strip()),
+            DBProduct.company_id == product.company_id,
+            DBProduct.id != product_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"A product named '{product.name.strip()}' already exists for this company."
+            )
+
     db_product = crud_product.update_product(db, product_id=product_id, product=product)
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -53,6 +66,18 @@ def create_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
+    # Check for duplicate product within same company
+    if product.company_id:
+        existing = db.query(DBProduct).filter(
+            func.lower(DBProduct.name) == func.lower(product.name.strip()),
+            DBProduct.company_id == product.company_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"A product named '{product.name.strip()}' already exists for this company."
+            )
+
     db_product = crud_product.create_product(db=db, product=product)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Company not found")

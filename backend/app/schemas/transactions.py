@@ -28,6 +28,7 @@ class SaleBase(BaseModel):
     customer_phone: Optional[str] = None
     quantity: int = Field(..., gt=0)
     selling_price: Decimal = Field(..., ge=0)
+    paid_amount: Optional[Decimal] = Field(default=None, ge=0)
     payment_type: Literal['Credit', 'Debit']
 
 class SaleCreate(SaleBase):
@@ -42,13 +43,14 @@ class SaleUpdate(BaseModel):
     customer_phone: Optional[str] = None
     quantity: Optional[int] = Field(default=None, gt=0)
     selling_price: Optional[Decimal] = Field(default=None, ge=0)
+    paid_amount: Optional[Decimal] = Field(default=None, ge=0)
     payment_type: Optional[Literal['Credit', 'Debit']] = None
 
 class Sale(SaleBase):
     id: UUID
     purchase_price: Decimal
     total_amount: Decimal
+    paid_amount: Optional[Decimal] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-

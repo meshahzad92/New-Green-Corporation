@@ -56,6 +56,7 @@ class Sale(Base):
     selling_price = Column(Numeric(12, 2), nullable=False)
     purchase_price = Column(Numeric(12, 2), nullable=False)
     total_amount = Column(Numeric(12, 2), nullable=False)
+    paid_amount = Column(Numeric(12, 2), nullable=True)
     payment_type = Column(Text, CheckConstraint("payment_type IN ('Credit', 'Debit')"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

@@ -41,6 +41,7 @@ export interface Sale {
   customerName: string;
   customerPhone?: string; // Optional phone number for credit follow-ups
   totalAmount: number;
+  paidAmount?: number;
   paymentType: 'Credit' | 'Debit'; // Credit = Unpaid (Red), Debit = Paid (Green)
   date: string;
 }
