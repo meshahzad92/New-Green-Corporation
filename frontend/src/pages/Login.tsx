@@ -14,11 +14,11 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = await login(username, password);
-    if (success) {
+    const result = await login(username, password);
+    if (result.success) {
       navigate('/');
     } else {
-      setError('Incorrect identifier or password. Please verify your credentials.');
+      setError(result.error || 'Incorrect identifier or password. Please verify your credentials.');
     }
   };
 

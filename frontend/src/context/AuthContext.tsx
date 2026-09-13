@@ -3,7 +3,7 @@ import api from '../utils/api';
 
 interface AuthContextType {
   isLoggedIn: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -14,21 +14,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return !!localStorage.getItem('token');
   });
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
+      const params = new URLSearchParams();
+      params.append('username', username.trim());
+      params.append('password', password);
 
-      const response = await api.post('/login/access-token', formData);
+      const response = await api.post('/login/access-token', params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
       const { access_token } = response.data;
+
+      if (!access_token) {
+        return { success: false, error: 'No access token returned by server.' };
+      }
 
       localStorage.setItem('token', access_token);
       setIsLoggedIn(true);
-      return true;
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Login failed:', error);
-      return false;
+      let errorMsg = 'Incorrect identifier or password. Please verify your credentials.';
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMsg = error.response.data.detail;
+        } else if (Array.isArray(error.response.data.detail)) {
+          errorMsg = error.response.data.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join(', ');
+        }
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      return { success: false, error: errorMsg };
     }
   };
 
