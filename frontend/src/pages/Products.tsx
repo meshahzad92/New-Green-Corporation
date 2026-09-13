@@ -39,11 +39,13 @@ const Products: React.FC = () => {
 
   const categories = ['Fertilizer', 'Seeds', 'Pesticide', 'Tools', 'Other'];
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCompany = selectedCompany === 'all' || p.companyId === selectedCompany;
-    return matchesSearch && matchesCompany;
-  });
+  const filteredProducts = products
+    .filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCompany = selectedCompany === 'all' || p.companyId === selectedCompany;
+      return matchesSearch && matchesCompany;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +56,18 @@ const Products: React.FC = () => {
       await addProduct(formData);
     }
     handleClose();
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingId(null);
+    setFormData({
+      companyId: selectedCompany !== 'all' ? selectedCompany : '',
+      name: '',
+      category: 'Fertilizer',
+      unit: 'Bags',
+      minStock: 5
+    });
+    setIsModalOpen(true);
   };
 
   const handleEdit = (e: React.MouseEvent, product: Product) => {
@@ -89,7 +103,7 @@ const Products: React.FC = () => {
           <p className="text-slate-500 dark:text-slate-400 font-medium">Click on any product to see stock & details</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenAddModal}
           className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl flex items-center gap-3 font-bold shadow-xl shadow-emerald-600/20 transition-all active:scale-95"
         >
           <Plus className="w-5 h-5 stroke-[3px]" />
@@ -97,27 +111,28 @@ const Products: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-200/60 dark:border-slate-700 space-y-5">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by name..."
-              className="w-full pl-14 pr-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none outline-none font-semibold text-slate-900 dark:text-white"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 px-1 items-center no-scrollbar">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Companies:</span>
-            <button onClick={() => setSelectedCompany('all')} className={`px-5 py-3 rounded-xl text-xs font-bold ${selectedCompany === 'all' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>All</button>
-            {companies.map(company => (
-              <button key={company.id} onClick={() => setSelectedCompany(company.id)} className={`px-5 py-3 rounded-xl text-xs font-bold whitespace-nowrap ${selectedCompany === company.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
-                {company.name}
-              </button>
-            ))}
-          </div>
+      <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-200/60 dark:border-slate-700 space-y-4">
+        {/* Full-width horizontal search bar */}
+        <div className="relative w-full">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by name..."
+            className="w-full pl-14 pr-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none outline-none font-semibold text-slate-900 dark:text-white"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* Company filter buttons */}
+        <div className="flex gap-2 overflow-x-auto pb-1 px-1 items-center no-scrollbar">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 shrink-0">Companies:</span>
+          <button onClick={() => setSelectedCompany('all')} className={`px-5 py-3 rounded-xl text-xs font-bold shrink-0 ${selectedCompany === 'all' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>All</button>
+          {companies.map(company => (
+            <button key={company.id} onClick={() => setSelectedCompany(company.id)} className={`px-5 py-3 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 ${selectedCompany === company.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+              {company.name}
+            </button>
+          ))}
         </div>
       </div>
 

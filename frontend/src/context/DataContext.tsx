@@ -95,6 +95,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       });
 
+      mappedProducts.sort((a: Product, b: Product) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
       setProducts(mappedProducts);
       setStocks(mappedStocks);
       setStockTransactions(transRes.data.map((t: any) => ({
