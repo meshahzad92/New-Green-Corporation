@@ -13,6 +13,7 @@ const Companies: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -41,15 +42,21 @@ const Companies: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isSubmitting) return;
 
-    if (editingId) {
-      await updateCompany(editingId, name);
-    } else {
-      await addCompany(name);
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await updateCompany(editingId, name.trim());
+      } else {
+        await addCompany(name.trim());
+      }
+      handleClose();
+    } catch (err) {
+      console.error('Failed to save company:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    handleClose();
   };
 
   const handleEdit = (e: React.MouseEvent, id: string, currentName: string) => {
@@ -185,9 +192,17 @@ const Companies: React.FC = () => {
               </div>
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl hover:bg-emerald-700 transition-all active:scale-95 shadow-xl shadow-emerald-600/30 tracking-widest uppercase"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl hover:bg-emerald-700 transition-all active:scale-95 shadow-xl shadow-emerald-600/30 tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {editingId ? 'Save Changes' : 'Confirm Registration'}
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  editingId ? 'Save Changes' : 'Confirm Registration'
+                )}
               </button>
             </form>
           </div>

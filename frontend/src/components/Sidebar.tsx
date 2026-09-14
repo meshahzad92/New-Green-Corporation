@@ -18,7 +18,9 @@ import {
   Sprout,
   Menu,
   X,
-  MoreVertical
+  MoreVertical,
+  Database,
+  StickyNote
 } from 'lucide-react';
 
 const navItems = [
@@ -29,6 +31,8 @@ const navItems = [
   { path: '/sales', label: 'Sales', icon: ShoppingCart },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
   { path: '/reports', label: 'Reports', icon: BarChart3 },
+  { path: '/notes', label: 'Notes', icon: StickyNote },
+  { path: '/backup', label: 'Backup', icon: Database },
 ];
 
 const Sidebar: React.FC = () => {

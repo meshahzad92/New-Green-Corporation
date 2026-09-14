@@ -13,6 +13,7 @@ const Products: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -61,6 +62,7 @@ const Products: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setModalError('');
 
     const trimmedName = formData.name.trim().toLowerCase();
@@ -76,13 +78,20 @@ const Products: React.FC = () => {
       return;
     }
 
-    if (editingId) {
-      const existingProduct = products.find(p => p.id === editingId);
-      await updateProduct(editingId, { ...formData, name: formData.name.trim(), purchasePrice: existingProduct?.purchasePrice || 0 });
-    } else {
-      await addProduct({ ...formData, name: formData.name.trim() });
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        const existingProduct = products.find(p => p.id === editingId);
+        await updateProduct(editingId, { ...formData, name: formData.name.trim(), purchasePrice: existingProduct?.purchasePrice || 0 });
+      } else {
+        await addProduct({ ...formData, name: formData.name.trim() });
+      }
+      handleClose();
+    } catch (err) {
+      console.error('Failed to save product:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-    handleClose();
   };
 
   const handleOpenAddModal = () => {
@@ -308,8 +317,19 @@ const Products: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-600/30 uppercase tracking-widest">
-                Confirm Product
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-600/30 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving Product...
+                  </>
+                ) : (
+                  editingId ? 'Save Changes' : 'Confirm Product'
+                )}
               </button>
             </form>
           </div>

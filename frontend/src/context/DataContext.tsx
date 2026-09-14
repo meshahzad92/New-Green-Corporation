@@ -54,17 +54,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: c.created_at
       })).sort((a: any, b: any) => a.name.localeCompare(b.name)));
 
-      // Map backend products to frontend Product type with fallback for purchase_price
+      // Map backend products to frontend Product type with latest active refill pricing
       const mappedProducts: Product[] = prodRes.data.map((p: any) => {
         let pPrice = parseFloat(p.purchase_price) || 0;
-        if (pPrice <= 0) {
-          const productInTransactions = transRes.data
-            .filter((t: any) => t.product_id === p.id && t.type === 'IN' && parseFloat(t.purchase_price) > 0)
-            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          if (productInTransactions.length > 0) {
-            pPrice = parseFloat(productInTransactions[0].purchase_price);
+        let pMrp = p.mrp ? parseFloat(p.mrp) : undefined;
+        let pDiscount = p.company_discount !== null && p.company_discount !== undefined ? parseFloat(p.company_discount) : undefined;
+
+        // If backend values are missing or zero, check active non-deleted IN transactions for this product
+        const productInTransactions = transRes.data
+          .filter((t: any) => t.product_id === p.id && t.type === 'IN')
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        if (productInTransactions.length > 0) {
+          const latestIn = productInTransactions[0];
+          if (pPrice <= 0 && parseFloat(latestIn.purchase_price) > 0) {
+            pPrice = parseFloat(latestIn.purchase_price);
           }
+          if (!pMrp && latestIn.mrp) {
+            pMrp = parseFloat(latestIn.mrp);
+          }
+          if (pDiscount === undefined && latestIn.company_discount !== null && latestIn.company_discount !== undefined) {
+            pDiscount = parseFloat(latestIn.company_discount);
+          }
+        } else if (productInTransactions.length === 0) {
+          // No IN transactions exist at all for this product (e.g. all were deleted)
+          pPrice = 0;
+          pMrp = undefined;
+          pDiscount = undefined;
         }
+
         return {
           id: p.id,
           companyId: p.company_id,
@@ -72,8 +90,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           category: p.category,
           unit: p.unit,
           purchasePrice: pPrice,
-          mrp: p.mrp ? parseFloat(p.mrp) : undefined,
-          companyDiscount: p.company_discount !== null && p.company_discount !== undefined ? parseFloat(p.company_discount) : undefined,
+          mrp: pMrp,
+          companyDiscount: pDiscount,
           minStock: p.min_stock
         };
       });

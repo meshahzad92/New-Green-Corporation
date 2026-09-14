@@ -83,11 +83,22 @@ def create_product(db: Session, product: ProductCreate):
         if not company:
             return None
 
+    trimmed_name = product.name.strip()
+    # Deduplication / idempotency check: same name and same company
+    existing = db.query(Product).filter(
+        Product.company_id == product.company_id,
+        Product.name.ilike(trimmed_name)
+    ).first()
+    if existing:
+        return existing
+
     db_product = Product(
-        name=product.name,
+        name=trimmed_name,
         category=product.category,
         unit=product.unit,
         purchase_price=product.purchase_price,
+        mrp=product.mrp,
+        company_discount=product.company_discount,
         min_stock=product.min_stock,
         company_id=product.company_id
     )

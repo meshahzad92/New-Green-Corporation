@@ -35,8 +35,25 @@ def get_expense(db: Session, expense_id: UUID):
     ).first()
 
 def create_expense(db: Session, expense: ExpenseCreate):
-    """Create a new expense"""
-    db_expense = Expense(**expense.model_dump())
+    """Create a new expense with deduplication guard"""
+    from datetime import timedelta
+    now_utc = datetime.utcnow()
+    recent_cutoff = now_utc - timedelta(seconds=30)
+    trimmed_name = expense.name.strip()
+    
+    # Check if an identical active expense was created within the last 30 seconds
+    existing = db.query(Expense).filter(
+        Expense.name == trimmed_name,
+        Expense.amount == expense.amount,
+        Expense.is_deleted == False,
+        Expense.created_at >= recent_cutoff
+    ).first()
+    if existing:
+        return existing
+
+    data = expense.model_dump()
+    data['name'] = trimmed_name
+    db_expense = Expense(**data)
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { ArrowLeft, Package, ShoppingCart, Layers, Plus, TrendingUp, User, Building2, Calendar, History, Phone, CreditCard, Wallet, Banknote, X, Trash2 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import AddSaleModal from '../components/AddSaleModal';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -34,15 +35,39 @@ const ProductDetail: React.FC = () => {
     return Math.max(stock?.totalOut || 0, fromSales);
   }, [stock?.totalOut, productSales]);
 
+  const latestRefill = useMemo(() => {
+    return productLogs.length > 0 ? productLogs[0] : null;
+  }, [productLogs]);
+
   const latestCost = useMemo(() => {
-    if (product?.purchasePrice && product.purchasePrice > 0) {
-      return product.purchasePrice;
+    if (latestRefill && latestRefill.purchasePrice > 0) {
+      return latestRefill.purchasePrice;
     }
-    if (productLogs.length > 0 && productLogs[0].purchasePrice > 0) {
-      return productLogs[0].purchasePrice;
+    if (productLogs.length === 0) {
+      return 0;
     }
-    return 0;
-  }, [product?.purchasePrice, productLogs]);
+    return product?.purchasePrice || 0;
+  }, [latestRefill, productLogs, product?.purchasePrice]);
+
+  const latestMrp = useMemo(() => {
+    if (latestRefill && latestRefill.mrp !== undefined) {
+      return latestRefill.mrp;
+    }
+    if (productLogs.length === 0) {
+      return undefined;
+    }
+    return product?.mrp;
+  }, [latestRefill, productLogs, product?.mrp]);
+
+  const latestDiscount = useMemo(() => {
+    if (latestRefill && latestRefill.companyDiscount !== undefined) {
+      return latestRefill.companyDiscount;
+    }
+    if (productLogs.length === 0) {
+      return undefined;
+    }
+    return product?.companyDiscount;
+  }, [latestRefill, productLogs, product?.companyDiscount]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
@@ -52,6 +77,7 @@ const ProductDetail: React.FC = () => {
   const [addParty, setAddParty] = useState('');
   const [addMrp, setAddMrp] = useState('');
   const [addDiscount, setAddDiscount] = useState('');
+  const [isSubmittingStock, setIsSubmittingStock] = useState(false);
 
   // Auto-calculated purchase cost: MRP × (1 - discount/100)
   const calculatedPurchaseCost = React.useMemo(() => {
@@ -72,14 +98,6 @@ const ProductDetail: React.FC = () => {
     }
   }, [product?.id, isAddModalOpen]);
 
-  // Sell Form
-  const [sellQty, setSellQty] = useState('1');
-  const [sellCustomer, setSellCustomer] = useState('');
-  const [sellPhone, setSellPhone] = useState('');
-  const [sellPrice, setSellPrice] = useState('0');
-  const [paymentType, setPaymentType] = useState<'Credit' | 'Debit'>('Debit');
-  const [sellError, setSellError] = useState('');
-
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -91,47 +109,27 @@ const ProductDetail: React.FC = () => {
 
   if (!product) return null;
 
-  const handleAddStockSubmit = (e: React.FormEvent) => {
+  const handleAddStockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingStock) return;
     const q = parseInt(addQty);
     const mrp = parseFloat(addMrp);
     const disc = parseFloat(addDiscount) || 0;
     const purchaseCost = calculatedPurchaseCost;
     if (q > 0 && addParty.trim() && purchaseCost !== null) {
-      addStock(product.id, q, addParty, purchaseCost, mrp, disc);
-      setIsAddModalOpen(false);
-      setAddQty('0');
-      setAddParty('');
-      setAddMrp('');
-      setAddDiscount('');
-    }
-  };
-
-  const handleSellSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = parseInt(sellQty);
-    const p = parseFloat(sellPrice);
-
-    // Validation
-    if (!q || q <= 0 || !sellCustomer.trim()) return;
-
-    if (sellPhone.trim() && !/^\d{11}$/.test(sellPhone.trim())) {
-      setSellError('Phone number must be exactly 11 digits (e.g. 03001234567)');
-      return;
-    }
-
-    if (q > (stock?.remaining || 0)) {
-      setSellError(`Insufficient Stock! Available: ${stock?.remaining}`);
-      return;
-    }
-
-    const success = addSale(product.id, q, sellCustomer, p, paymentType, sellPhone.trim());
-    if (success) {
-      setIsSellModalOpen(false);
-      setSellQty('1');
-      setSellCustomer('');
-      setSellPhone('');
-      setSellError('');
+      setIsSubmittingStock(true);
+      try {
+        await addStock(product.id, q, addParty.trim(), purchaseCost, mrp, disc);
+        setIsAddModalOpen(false);
+        setAddQty('0');
+        setAddParty('');
+        setAddMrp('');
+        setAddDiscount('');
+      } catch (err) {
+        console.error('Failed to refill stock:', err);
+      } finally {
+        setIsSubmittingStock(false);
+      }
     }
   };
 
@@ -168,7 +166,7 @@ const ProductDetail: React.FC = () => {
             </div>
           </div>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
-            <button onClick={() => { setSellPrice(''); setIsSellModalOpen(true); }} className="flex-1 bg-white text-emerald-600 font-black py-4 rounded-2xl shadow-lg transition-transform hover:scale-105 active:scale-95">SELL PRODUCT</button>
+            <button onClick={() => setIsSellModalOpen(true)} className="flex-1 bg-white text-emerald-600 font-black py-4 rounded-2xl shadow-lg transition-transform hover:scale-105 active:scale-95">SELL PRODUCT</button>
             <button onClick={() => setIsAddModalOpen(true)} className="flex-1 bg-emerald-500 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-emerald-400 transition-colors active:scale-95">REFILL STOCK</button>
           </div>
         </div>
@@ -178,22 +176,24 @@ const ProductDetail: React.FC = () => {
           <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Stock Valuation</p>
           <h4 className="text-2xl md:text-3xl font-black text-blue-600 leading-none">Rs. {inventoryValuation.toLocaleString()}</h4>
           <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-2">
-            {product.mrp && product.mrp > 0 && (
+            {latestMrp !== undefined && latestMrp > 0 && (
               <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                 <span>MRP</span>
-                <span className="text-slate-900 dark:text-white font-black">Rs. {product.mrp.toLocaleString()}</span>
+                <span className="text-slate-900 dark:text-white font-black">Rs. {latestMrp.toLocaleString()}</span>
               </div>
             )}
-            {product.companyDiscount !== undefined && product.companyDiscount > 0 && (
+            {latestDiscount !== undefined && latestDiscount > 0 && (
               <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                 <span>Company Discount</span>
-                <span className="text-emerald-600 font-black">{product.companyDiscount}%</span>
+                <span className="text-emerald-600 font-black">{latestDiscount}%</span>
               </div>
             )}
-            <div className="flex justify-between items-center text-xs font-bold text-slate-500">
-              <span>Purchase Cost</span>
-              <span className="text-slate-900 dark:text-white font-black">Rs. {latestCost.toLocaleString()}</span>
-            </div>
+            {latestCost > 0 && (
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                <span>Purchase Cost</span>
+                <span className="text-slate-900 dark:text-white font-black">Rs. {latestCost.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center text-xs font-bold text-slate-500">
               <span>Unit Label</span>
               <span className="text-slate-900 dark:text-white font-black">{product.unit}</span>
@@ -374,59 +374,28 @@ const ProductDetail: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={calculatedPurchaseCost === null}
-                className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={calculatedPurchaseCost === null || isSubmittingStock}
+                className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Add To Stock
+                {isSubmittingStock ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Adding to Stock...
+                  </>
+                ) : (
+                  'Add To Stock'
+                )}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {isSellModalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/20">
-            <div className="bg-blue-600 p-8 text-white flex justify-between items-center">
-              <h2 className="text-2xl font-black">Generate Sale</h2>
-              <button onClick={() => setIsSellModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X /></button>
-            </div>
-            <form onSubmit={handleSellSubmit} className="p-8 space-y-5">
-              {sellError && <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl font-bold text-[10px] md:text-xs uppercase tracking-tight">{sellError}</div>}
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Customer Name *</label>
-                <input type="text" value={sellCustomer} onChange={(e) => setSellCustomer(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 outline-none font-bold text-slate-900 dark:text-white" required />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Phone Number (Optional - 11 Digits)</label>
-                <input
-                  type="tel"
-                  maxLength={11}
-                  value={sellPhone}
-                  onChange={(e) => setSellPhone(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 outline-none font-bold text-slate-900 dark:text-white"
-                  placeholder="e.g. 03001234567"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Qty ({product.unit}) *</label>
-                  <input type="number" min="1" value={sellQty} onChange={(e) => handleNumChange(setSellQty, e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 outline-none font-bold text-slate-900 dark:text-white" required />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Rate (Rs.) *</label>
-                  <input type="number" value={sellPrice} onChange={(e) => handleNumChange(setSellPrice, e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 outline-none font-bold text-emerald-600" required />
-                </div>
-              </div>
-              <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl">
-                <button type="button" onClick={() => setPaymentType('Debit')} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${paymentType === 'Debit' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Debit (Paid)</button>
-                <button type="button" onClick={() => setPaymentType('Credit')} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${paymentType === 'Credit' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-400'}`}>Credit (Pending)</button>
-              </div>
-              <button type="submit" className={`w-full ${paymentType === 'Debit' ? 'bg-emerald-600' : 'bg-rose-600'} text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest mt-2 active:scale-95 transition-all`}>Finalize Sale</button>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddSaleModal
+        isOpen={isSellModalOpen}
+        onClose={() => setIsSellModalOpen(false)}
+        initialProductId={product.id}
+      />
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}

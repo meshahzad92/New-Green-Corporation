@@ -16,6 +16,8 @@ import Stock from './pages/Stock';
 import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
+import Notes from './pages/Notes';
+import Backup from './pages/Backup';
 
 const App: React.FC = () => {
   return (
@@ -34,6 +36,8 @@ const App: React.FC = () => {
                 <Route path="/sales" element={<Sales />} />
                 <Route path="/expenses" element={<Expenses />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/notes" element={<Notes />} />
+                <Route path="/backup" element={<Backup />} />
               </Route>
             </Routes>
           </HashRouter>

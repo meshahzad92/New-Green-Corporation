@@ -94,3 +94,17 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean(), default=True)
+
+class Note(Base):
+    __tablename__ = "notes"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(Text, default="pending", nullable=False)  # 'pending', 'in_progress', 'completed'
+    is_important = Column(Boolean, default=False, nullable=False)  # Highlighted in top bar
+    priority = Column(Text, default="medium", nullable=False)  # 'low', 'medium', 'high'
+    target_date = Column(DateTime(timezone=True), nullable=True)  # Due / target scheduling date
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)

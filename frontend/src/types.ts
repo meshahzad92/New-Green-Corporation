@@ -52,10 +52,14 @@ export interface Sale {
   date: string;
 }
 
-export interface AppData {
-  companies: Company[];
-  products: Product[];
-  stocks: Stock[];
-  stockTransactions: StockTransaction[];
-  sales: Sale[];
+export interface Note {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  is_important: boolean;
+  priority: 'low' | 'medium' | 'high';
+  target_date?: string;
+  created_at: string;
+  updated_at?: string;
 }

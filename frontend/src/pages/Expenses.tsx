@@ -27,6 +27,7 @@ const ExpensesPage: React.FC = () => {
         expenseId: '',
         expenseName: ''
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         loadExpenses();
@@ -57,16 +58,19 @@ const ExpensesPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
         try {
             // Apply the correct sign based on expense type
             const finalAmount = expenseType === 'expense' ? -Math.abs(formData.amount) : Math.abs(formData.amount);
 
             const dateString = selectedDate.toISOString().split('T')[0];
             await expenseService.createExpense({
-                name: formData.name,
+                name: formData.name.trim(),
                 amount: finalAmount,
                 quantity: formData.quantity,
-                details: formData.details,
+                details: formData.details ? formData.details.trim() : '',
                 expense_date: dateString
             });
 
@@ -84,19 +88,24 @@ const ExpensesPage: React.FC = () => {
         } catch (error) {
             console.error('Failed to create expense:', error);
             alert('Failed to create expense');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleUpdate = async (id: string) => {
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
         try {
             // Apply the correct sign based on expense type
             const finalAmount = expenseType === 'expense' ? -Math.abs(formData.amount) : Math.abs(formData.amount);
 
             await expenseService.updateExpense(id, {
-                name: formData.name,
+                name: formData.name.trim(),
                 amount: finalAmount,
                 quantity: formData.quantity,
-                details: formData.details,
+                details: formData.details ? formData.details.trim() : '',
             });
             setEditingId(null);
             setFormData({
@@ -111,6 +120,8 @@ const ExpensesPage: React.FC = () => {
         } catch (error) {
             console.error('Failed to update expense:', error);
             alert('Failed to update expense');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -299,13 +310,13 @@ const ExpensesPage: React.FC = () => {
                         {/* Details - Full Width */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                Additional Details
+                                Details (Optional)
                             </label>
                             <textarea
                                 value={formData.details}
                                 onChange={(e) => setFormData({ ...formData, details: e.target.value })}
                                 rows={3}
-                                placeholder="Any additional notes..."
+                                placeholder="Enter details (optional)..."
                                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-purple-500 dark:focus:border-purple-500 focus:outline-none transition-colors resize-none"
                             />
                         </div>
@@ -314,10 +325,20 @@ const ExpensesPage: React.FC = () => {
                         <div className="flex gap-4">
                             <button
                                 type="submit"
-                                className="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2"
+                                disabled={isSubmitting}
+                                className="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Save className="w-5 h-5" />
-                                {editingId ? 'Update Entry' : 'Add Entry'}
+                                {isSubmitting ? (
+                                    <>
+                                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-5 h-5" />
+                                        {editingId ? 'Update Entry' : 'Add Entry'}
+                                    </>
+                                )}
                             </button>
                             <button
                                 type="button"

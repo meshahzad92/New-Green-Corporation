@@ -35,8 +35,23 @@ def startup_event():
             conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS company_discount NUMERIC(5, 2) DEFAULT 0;"))
             conn.execute(text("ALTER TABLE stock_transactions ADD COLUMN IF NOT EXISTS mrp NUMERIC(12, 2);"))
             conn.execute(text("ALTER TABLE stock_transactions ADD COLUMN IF NOT EXISTS company_discount NUMERIC(5, 2);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS notes (
+                    id UUID PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    is_important BOOLEAN NOT NULL DEFAULT FALSE,
+                    priority TEXT NOT NULL DEFAULT 'medium',
+                    target_date TIMESTAMP WITH TIME ZONE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+            """))
             conn.commit()
-            print("Schema verified: paid_amount, invoice columns, mrp, company_discount all present.")
+            print("Schema verified: paid_amount, invoice columns, mrp, company_discount, notes table all present.")
     except Exception as e:
         print(f"Startup schema check note: {e}")
 

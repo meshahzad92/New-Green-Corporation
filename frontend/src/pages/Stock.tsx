@@ -17,6 +17,7 @@ const StockPage: React.FC = () => {
   const [quantity, setQuantity] = useState<string>('');
   const [partyName, setPartyName] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('0');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -48,17 +49,26 @@ const StockPage: React.FC = () => {
     return matchesSearch;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const handleAddStock = (e: React.FormEvent) => {
+  const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const qty = parseInt(quantity);
     const cost = parseFloat(purchasePrice);
     if (!selectedProductId || !qty || qty <= 0) return;
-    addStock(selectedProductId, qty, partyName || 'Direct Supply', cost);
-    setIsModalOpen(false);
-    setSelectedProductId('');
-    setQuantity('');
-    setPartyName('');
-    setPurchasePrice('0');
+
+    setIsSubmitting(true);
+    try {
+      await addStock(selectedProductId, qty, partyName.trim() || 'Direct Supply', cost);
+      setIsModalOpen(false);
+      setSelectedProductId('');
+      setQuantity('');
+      setPartyName('');
+      setPurchasePrice('0');
+    } catch (err) {
+      console.error('Failed to log stock:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleNumChange = (setter: React.Dispatch<React.SetStateAction<string>>, val: string) => {
@@ -351,9 +361,17 @@ const StockPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 uppercase tracking-widest"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Save Log
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving Log...
+                  </>
+                ) : (
+                  'Save Log'
+                )}
               </button>
             </form>
           </div>

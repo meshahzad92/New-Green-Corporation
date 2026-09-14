@@ -7,7 +7,7 @@ from uuid import UUID
 import uuid
 from decimal import Decimal
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def get_product_stock(db: Session, product_id: UUID):
     in_stock = db.query(func.coalesce(func.sum(StockTransaction.quantity), 0)).filter(
@@ -37,6 +37,20 @@ def create_transaction(db: Session, transaction: transactions.StockTransactionCr
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    # Idempotency / deduplication check: prevent double-inserting if identical IN transaction submitted in last 20 seconds
+    now_utc = datetime.utcnow()
+    recent_cutoff = now_utc - timedelta(seconds=20)
+    existing = db.query(StockTransaction).filter(
+        StockTransaction.product_id == transaction.product_id,
+        StockTransaction.quantity == transaction.quantity,
+        StockTransaction.party_name == transaction.party_name,
+        StockTransaction.type == transaction.type,
+        StockTransaction.is_deleted == False,
+        StockTransaction.created_at >= recent_cutoff
+    ).first()
+    if existing:
+        return existing
+
     db_transaction = StockTransaction(**transaction.model_dump())
     db.add(db_transaction)
     
@@ -53,7 +67,7 @@ def create_transaction(db: Session, transaction: transactions.StockTransactionCr
     return db_transaction
 
 def delete_transaction(db: Session, transaction_id: UUID):
-    """Soft delete: Mark transaction as deleted instead of removing from database"""
+    """Soft delete: Mark transaction as deleted instead of removing from database and update product pricing"""
     db_transaction = db.query(StockTransaction).filter(
         StockTransaction.id == transaction_id,
         StockTransaction.is_deleted == False  # Can only delete non-deleted transactions
@@ -63,6 +77,26 @@ def delete_transaction(db: Session, transaction_id: UUID):
         # Soft delete - mark as deleted with timestamp
         db_transaction.is_deleted = True
         db_transaction.deleted_at = datetime.utcnow()
+        
+        # If this was an 'IN' stock transaction, recalculate the product's purchase_price, mrp, and company_discount
+        if db_transaction.type == 'IN' and db_transaction.product_id:
+            db_product = db.query(Product).filter(Product.id == db_transaction.product_id).first()
+            if db_product:
+                latest_in = db.query(StockTransaction).filter(
+                    StockTransaction.product_id == db_product.id,
+                    StockTransaction.type == 'IN',
+                    StockTransaction.is_deleted == False
+                ).order_by(StockTransaction.created_at.desc()).first()
+                
+                if latest_in:
+                    db_product.purchase_price = latest_in.purchase_price or Decimal('0.00')
+                    db_product.mrp = latest_in.mrp
+                    db_product.company_discount = latest_in.company_discount
+                else:
+                    db_product.purchase_price = Decimal('0.00')
+                    db_product.mrp = None
+                    db_product.company_discount = Decimal('0.00')
+        
         db.commit()
         db.refresh(db_transaction)
     
@@ -79,6 +113,20 @@ def get_sales(db: Session, skip: int = 0, limit: int = 100, include_deleted: boo
     return query.order_by(Sale.created_at.desc()).offset(skip).limit(limit).all()
 
 def create_sale(db: Session, sale: transactions.SaleCreate):
+    # Idempotency / deduplication check: return existing sale if identical sale submitted in last 20 seconds
+    recent_cutoff = datetime.utcnow() - timedelta(seconds=20)
+    trimmed_cust = sale.customer_name.strip()
+    existing = db.query(Sale).filter(
+        Sale.customer_name == trimmed_cust,
+        Sale.product_id == sale.product_id,
+        Sale.quantity == sale.quantity,
+        Sale.selling_price == sale.selling_price,
+        Sale.is_deleted == False,
+        Sale.created_at >= recent_cutoff
+    ).first()
+    if existing:
+        return existing
+
     # Fetch product to get historical purchase price
     db_product = db.query(Product).filter(Product.id == sale.product_id).first()
     if not db_product:
@@ -127,7 +175,31 @@ def create_sale(db: Session, sale: transactions.SaleCreate):
 def create_bulk_sale(db: Session, bulk_sale: transactions.BulkSaleCreate):
     """
     Creates multiple sale items under a single invoice with atomic stock validation.
+    Includes idempotency deduplication guard.
     """
+    if not bulk_sale.items:
+        return []
+
+    # Idempotency / deduplication check:
+    # If a user double-clicks submit, return existing invoice sales rather than creating duplicates
+    recent_cutoff = datetime.utcnow() - timedelta(seconds=20)
+    trimmed_cust = bulk_sale.customer_name.strip()
+    first_item = bulk_sale.items[0]
+    existing_sale = db.query(Sale).filter(
+        Sale.customer_name == trimmed_cust,
+        Sale.product_id == first_item.product_id,
+        Sale.quantity == first_item.quantity,
+        Sale.is_deleted == False,
+        Sale.created_at >= recent_cutoff
+    ).first()
+    if existing_sale and existing_sale.invoice_id:
+        matching_sales = db.query(Sale).filter(
+            Sale.invoice_id == existing_sale.invoice_id,
+            Sale.is_deleted == False
+        ).all()
+        if len(matching_sales) == len(bulk_sale.items):
+            return matching_sales
+
     # 1. Validate all products and stock availability FIRST
     products_map = {}
     for item in bulk_sale.items:

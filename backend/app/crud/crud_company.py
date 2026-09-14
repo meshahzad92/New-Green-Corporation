@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 from app.models.models import Company
 from app.schemas.company import CompanyCreate, CompanyUpdate
 from uuid import UUID
@@ -10,7 +10,13 @@ def get_company(db: Session, company_id: UUID):
     return db.query(Company).filter(Company.id == company_id).first()
 
 def create_company(db: Session, company: CompanyCreate):
-    db_company = Company(name=company.name)
+    trimmed_name = company.name.strip()
+    # Idempotency / deduplication check
+    existing = db.query(Company).filter(Company.name.ilike(trimmed_name)).first()
+    if existing:
+        return existing
+
+    db_company = Company(name=trimmed_name)
     db.add(db_company)
     db.commit()
     db.refresh(db_company)
@@ -19,7 +25,7 @@ def create_company(db: Session, company: CompanyCreate):
 def update_company(db: Session, company_id: UUID, company: CompanyUpdate):
     db_company = db.query(Company).filter(Company.id == company_id).first()
     if db_company:
-        db_company.name = company.name
+        db_company.name = company.name.strip()
         db.commit()
         db.refresh(db_company)
     return db_company
