@@ -140,6 +140,14 @@ This file serves as the comprehensive living context and knowledge base for the 
    - `GET /api/v1/backup/export` dumps all tables matching exact database schema column names.
    - `POST /api/v1/backup/import` restores and upserts data in foreign-key order (`companies` -> `products` -> `sales` -> `stock_transactions` -> `expenses`).
 
+10. **Dual Inventory Valuation (Investment at Cost vs. Retail at MRP)**:
+   - **Total Stock Investment (At Purchase Cost)**: `SUM(purchase_price * remaining_stock)` — Represents actual capital locked in inventory.
+   - **Projected Retail Return (At MRP)**: `SUM(mrp * remaining_stock)` — Expected gross revenue if all available units are sold at printed MRP.
+   - **Projected Inventory Profit**: `Projected Retail Return - Total Stock Investment` — Expected gross profit and margin percentage from current stock.
+   - Displayed in:
+     - Dashboard Supply Summary: 3 dedicated cards for Capital Investment, MRP Value, and Potential Profit.
+     - Stock Ledger Balance Tab: Top summary cards with dynamic company filter + table columns for Purchase Price, Retail MRP, Total Investment, and MRP Value per product.
+
 ---
 
 ## 4. API Endpoints Map
@@ -204,6 +212,16 @@ This file serves as the comprehensive living context and knowledge base for the 
 7. **Fix Stock Refill Deletion Pricing Glitch**:
    - Fixed issue where deleting a stock refill left stale purchase price, MRP, and discount visible on the product.
    - Now automatically updates product pricing to the previous active refill log, or cleanly resets them to 0/empty if all stock refills are deleted.
+8. **Stock Ledger & Catalog Product Deduplication**:
+   - Cleaned up duplicate product rows from Supabase database (`Cruiser 100ml`, `Karate 250ml`, `Quantus 800ml`).
+   - In all cases, records with active stock (`415`, `9`, `139`) and transaction history were preserved, while zero-stock duplicate rows were purged.
+   - Added startup SQL cleanup in `main.py` that automatically removes zero-transaction duplicate products.
+   - Implemented intelligent deduplication in `DataContext.tsx` that groups products by `(companyId, normalized_name)` and aggregates stock balances across duplicates so no inventory counts are lost.
+   - Updated `Stock.tsx` (both the Balance ledger table and the Stock Inward modal item dropdown) and `Products.tsx` to ensure each item is rendered exactly once, prioritizing entries with stock > 0.
+9. **Dual Inventory Valuation (Investment at Cost vs. Retail Value at MRP)**:
+   - Added `total_inventory_mrp_value` and `projected_inventory_profit` to backend `DashboardStats` schema and `get_dashboard_stats()`.
+   - Updated Dashboard Supply Summary with 3 distinct insight cards: Capital Invested (at purchase price), Projected Return (at MRP), and Expected Profit Margin (+X%).
+   - Updated Stock Ledger Balance page with a top metrics banner (filtering dynamically with company selector) and individual product ledger columns for Purchase Price, Retail MRP, Total Invested Capital, and Projected MRP Value.
 
 ---
 
@@ -215,9 +233,12 @@ To counteract Supabase cloud latency and accidental double-clicks:
    - Disable submit buttons immediately upon click.
    - Show loading text / spinner (`Saving...`, `Processing...`).
    - Guard against re-entry (`if (isSubmitting) return;`).
+   - `DataContext.tsx` groups products and stocks by `companyId + '-' + normalizedName`. When duplicates exist, the primary record chosen is the one with `remaining > 0` (or highest stock), and stock quantities (`totalIn`, `totalOut`, `remaining`) are aggregated.
+   - `Stock.tsx` and `Products.tsx` use memoized `uniqueProducts` filtering that sorts duplicate candidates by `stock.remaining > 0`, ensuring only the active product is displayed.
 2. **Backend**:
+   - Startup cleanup in `app/main.py`: Deletes duplicate product entries that have 0 transactions and 0 sales if a matching active product exists for that company.
    - Companies: Check if company with same trimmed name exists.
-   - Products: Check if product with same name + company exists.
+   - Products: Check if product with same name + company exists on `create_product` and `update_product`.
    - Expenses: Check if identical expense was created in the last 30 seconds.
    - Notes: Check if identical note was created in the last 15 seconds.
    - Stock Refill: Check if identical stock transaction was created in the last 20 seconds.

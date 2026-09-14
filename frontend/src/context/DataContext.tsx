@@ -117,10 +117,66 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       });
 
-      mappedProducts.sort((a: Product, b: Product) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      // Deduplicate products and stocks by (companyId, normalized name)
+      // If duplicates exist, pick the one with remaining > 0 (or highest stock), and aggregate stock values
+      const productGroups = new Map<string, Product[]>();
+      for (const p of mappedProducts) {
+        const key = `${p.companyId || 'nocomp'}-${p.name.trim().toLowerCase()}`;
+        const group = productGroups.get(key) || [];
+        group.push(p);
+        productGroups.set(key, group);
+      }
 
-      setProducts(mappedProducts);
-      setStocks(mappedStocks);
+      const deduplicatedProducts: Product[] = [];
+      const deduplicatedStocks: Stock[] = [];
+
+      productGroups.forEach((group) => {
+        if (group.length === 1) {
+          const p = group[0];
+          deduplicatedProducts.push(p);
+          const st = mappedStocks.find(s => s.productId === p.id);
+          if (st) deduplicatedStocks.push(st);
+        } else {
+          // Find stock for each candidate in group
+          const candidates = group.map(p => {
+            const st = mappedStocks.find(s => s.productId === p.id);
+            return {
+              product: p,
+              stock: st,
+              remaining: st?.remaining || 0,
+              totalIn: st?.totalIn || 0,
+              totalOut: st?.totalOut || 0,
+              hasPrice: (p.purchasePrice && p.purchasePrice > 0) || (p.mrp && p.mrp > 0)
+            };
+          });
+
+          // Sort so best record comes first (highest remaining stock, has price, etc.)
+          candidates.sort((a, b) => {
+            if (b.remaining !== a.remaining) return b.remaining - a.remaining;
+            if (b.hasPrice !== a.hasPrice) return (b.hasPrice ? 1 : 0) - (a.hasPrice ? 1 : 0);
+            return b.totalIn - a.totalIn;
+          });
+
+          const primary = candidates[0];
+          // Sum up totalIn, totalOut, and remaining across all duplicate entries
+          const aggregatedTotalIn = candidates.reduce((sum, c) => sum + c.totalIn, 0);
+          const aggregatedTotalOut = candidates.reduce((sum, c) => sum + c.totalOut, 0);
+          const aggregatedRemaining = candidates.reduce((sum, c) => sum + c.remaining, 0);
+
+          deduplicatedProducts.push(primary.product);
+          deduplicatedStocks.push({
+            productId: primary.product.id,
+            totalIn: aggregatedTotalIn,
+            totalOut: aggregatedTotalOut,
+            remaining: aggregatedRemaining
+          });
+        }
+      });
+
+      deduplicatedProducts.sort((a: Product, b: Product) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+      setProducts(deduplicatedProducts);
+      setStocks(deduplicatedStocks);
       setStockTransactions(transRes.data.map((t: any) => ({
         id: t.id,
         productId: t.product_id,

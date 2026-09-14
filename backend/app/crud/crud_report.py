@@ -22,19 +22,27 @@ def get_dashboard_stats(db: Session):
     product_stats_query = db.query(
         Product.id,
         Product.purchase_price,
+        Product.mrp,
         Product.min_stock,
         current_stock.label("stock_balance")
     ).outerjoin(StockTransaction).group_by(Product.id).all()
 
     total_value = Decimal('0.00')
+    total_mrp_value = Decimal('0.00')
     low_stock_count = 0
     total_products = len(product_stats_query)
 
     for p in product_stats_query:
-        if p.stock_balance > 0:
-            total_value += (p.purchase_price * p.stock_balance)
-        if p.stock_balance <= p.min_stock:
+        if p.stock_balance and p.stock_balance > 0:
+            qty = Decimal(str(p.stock_balance))
+            cost = p.purchase_price or Decimal('0.00')
+            mrp = p.mrp if (p.mrp and p.mrp > 0) else cost
+            total_value += (cost * qty)
+            total_mrp_value += (mrp * qty)
+        if p.stock_balance is None or p.stock_balance <= (p.min_stock or 5):
             low_stock_count += 1
+
+    projected_profit = total_mrp_value - total_value
 
     # 2. Today's Sales Performance - only count non-deleted sales
     today = date.today()
@@ -84,6 +92,8 @@ def get_dashboard_stats(db: Session):
     return {
         "stats": {
             "total_inventory_value": total_value,
+            "total_inventory_mrp_value": total_mrp_value,
+            "projected_inventory_profit": projected_profit,
             "total_products": total_products,
             "low_stock_count": low_stock_count,
             "today_sales_revenue": sales_revenue,

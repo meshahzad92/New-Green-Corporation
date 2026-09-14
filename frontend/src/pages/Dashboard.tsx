@@ -71,6 +71,8 @@ const Dashboard: React.FC = () => {
     total_expense: 0,
     net_profit: 0,
     total_inventory_value: 0,
+    total_inventory_mrp_value: 0,
+    projected_inventory_profit: 0,
     total_products: 0,
     low_stock_count: 0
   };
@@ -195,15 +197,58 @@ const Dashboard: React.FC = () => {
             <Building2 className="text-indigo-500" />
             Supply Summary
           </h2>
-          <div className="space-y-4">
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">Low Stock Alerts</p>
-              <p className="text-2xl font-black text-rose-500">{stats.low_stock_count || 0}</p>
+          <div className="space-y-3">
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase">Low Stock Alerts</p>
+                <p className="text-xl font-black text-rose-500 mt-0.5">{stats.low_stock_count || 0} Products</p>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400">
+                Action Req.
+              </span>
             </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl">
-              <p className="text-xs font-bold text-slate-400 uppercase">Total Inventory Valuation</p>
-              <p className="text-2xl font-black text-blue-600">
-                Rs. {Number(stats.total_inventory_value).toLocaleString()}
+
+            {/* Total Stock Investment (At Purchase Cost) */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-400 uppercase">Total Investment (Cost)</p>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                  Purchase Rate
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+                Rs. {Number(stats.total_inventory_value || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] font-medium text-slate-400 mt-0.5">Actual capital locked in current stock</p>
+            </div>
+
+            {/* Projected Retail Return (At MRP) */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-400 uppercase">Projected Value (MRP)</p>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                  Retail Return
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
+                Rs. {Number(stats.total_inventory_mrp_value || stats.total_inventory_value || 0).toLocaleString()}
+              </p>
+              <p className="text-[11px] font-medium text-slate-400 mt-0.5">Total money if sold at printed MRP</p>
+            </div>
+
+            {/* Projected Margin on Stock */}
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-800/30">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase">Expected Profit</p>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
+                  On MRP
+                </span>
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                +Rs. {Number(stats.projected_inventory_profit || (Number(stats.total_inventory_mrp_value || 0) - Number(stats.total_inventory_value || 0))).toLocaleString()}
+              </p>
+              <p className="text-[11px] font-medium text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                Gross margin potential if sold at MRP
               </p>
             </div>
           </div>

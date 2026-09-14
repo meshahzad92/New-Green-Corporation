@@ -50,8 +50,28 @@ def startup_event():
                     deleted_at TIMESTAMP WITH TIME ZONE
                 );
             """))
+            # Safe cleanup of duplicate products that have 0 transactions and 0 sales
+            conn.execute(text("""
+                DELETE FROM products p1
+                WHERE p1.id IN (
+                    SELECT p_sub.id FROM products p_sub
+                    WHERE p_sub.id NOT IN (SELECT DISTINCT product_id FROM stock_transactions WHERE product_id IS NOT NULL)
+                      AND p_sub.id NOT IN (SELECT DISTINCT product_id FROM sales WHERE product_id IS NOT NULL)
+                      AND EXISTS (
+                          SELECT 1 FROM products p_dup
+                          WHERE p_dup.company_id = p_sub.company_id
+                            AND LOWER(TRIM(p_dup.name)) = LOWER(TRIM(p_sub.name))
+                            AND p_dup.id != p_sub.id
+                            AND (
+                                EXISTS (SELECT 1 FROM stock_transactions WHERE product_id = p_dup.id)
+                                OR EXISTS (SELECT 1 FROM sales WHERE product_id = p_dup.id)
+                                OR p_dup.id < p_sub.id
+                            )
+                      )
+                );
+            """))
             conn.commit()
-            print("Schema verified: paid_amount, invoice columns, mrp, company_discount, notes table all present.")
+            print("Schema verified: paid_amount, invoice columns, mrp, company_discount, notes table present, and duplicate products pruned.")
     except Exception as e:
         print(f"Startup schema check note: {e}")
 

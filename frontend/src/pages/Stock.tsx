@@ -27,11 +27,65 @@ const StockPage: React.FC = () => {
     partyName: ''
   });
 
-  const filteredProducts = products.filter(p => {
+  // Deduplicate products: ensure only 1 product of same name and same company exists in display, prioritizing records with active stock
+  const uniqueProducts = React.useMemo(() => {
+    const grouped = new Map<string, typeof products>();
+    for (const p of products) {
+      const key = `${p.companyId || 'nocomp'}-${p.name.trim().toLowerCase()}`;
+      const list = grouped.get(key) || [];
+      list.push(p);
+      grouped.set(key, list);
+    }
+
+    const result: typeof products = [];
+    grouped.forEach((list) => {
+      if (list.length === 1) {
+        result.push(list[0]);
+      } else {
+        const sorted = [...list].sort((a, b) => {
+          const stockA = stocks.find(s => s.productId === a.id)?.remaining || 0;
+          const stockB = stocks.find(s => s.productId === b.id)?.remaining || 0;
+          if (stockB !== stockA) return stockB - stockA;
+          const priceA = a.purchasePrice || 0;
+          const priceB = b.purchasePrice || 0;
+          return priceB - priceA;
+        });
+        result.push(sorted[0]);
+      }
+    });
+
+    return result.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [products, stocks]);
+
+  const filteredProducts = uniqueProducts.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCompany = selectedCompany === 'all' || p.companyId === selectedCompany;
     return matchesSearch && matchesCompany;
   });
+
+  // Stock Valuation Summary: calculates total capital investment (at purchase cost), retail return (at MRP), and profit potential
+  const stockSummary = React.useMemo(() => {
+    let totalItems = 0;
+    let totalCost = 0;
+    let totalMrp = 0;
+
+    for (const prod of filteredProducts) {
+      const st = stocks.find(s => s.productId === prod.id);
+      const remaining = st?.remaining || 0;
+      if (remaining > 0) {
+        totalItems += remaining;
+        const cost = prod.purchasePrice || 0;
+        const mrp = prod.mrp && prod.mrp > 0 ? prod.mrp : cost;
+        totalCost += cost * remaining;
+        totalMrp += mrp * remaining;
+      }
+    }
+
+    const profit = totalMrp - totalCost;
+    const marginPct = totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : '0';
+
+    return { totalItems, totalCost, totalMrp, profit, marginPct };
+  }, [filteredProducts, stocks]);
 
   const filteredLogs = stockTransactions.filter(t => {
     if (t.type !== 'IN') return false; // Show only added logs
@@ -180,41 +234,118 @@ const StockPage: React.FC = () => {
           />
         </div>
 
+        {activeTab === 'balance' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-blue-100 dark:border-blue-900/30">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Total Investment</span>
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">Purchase Cost</span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
+                Rs. {stockSummary.totalCost.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">Capital invested across {stockSummary.totalItems.toLocaleString()} units</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-purple-100 dark:border-purple-900/30">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Projected Return</span>
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">Retail MRP</span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
+                Rs. {stockSummary.totalMrp.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">Total revenue if all sold at printed MRP</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-900/30">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Expected Profit</span>
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">+{stockSummary.marginPct}% Margin</span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
+                +Rs. {stockSummary.profit.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">Gross profit margin if sold at MRP</p>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           {activeTab === 'balance' ? (
             <table className="w-full text-left">
               <thead className="text-[10px] uppercase text-slate-400 font-black tracking-widest border-b border-slate-100 dark:border-slate-700">
                 <tr>
-                  <th className="px-8 py-6">Product Details</th>
-                  <th className="px-8 py-6">In Stock</th>
-                  <th className="px-8 py-6">Status</th>
+                  <th className="px-6 py-5">Product Details</th>
+                  <th className="px-6 py-5">In Stock</th>
+                  <th className="px-6 py-5">Purchase Price</th>
+                  <th className="px-6 py-5">Retail (MRP)</th>
+                  <th className="px-6 py-5">Total Investment</th>
+                  <th className="px-6 py-5">Value at MRP</th>
+                  <th className="px-6 py-5 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filteredProducts.map((product) => {
                   const stock = stocks.find(s => s.productId === product.id);
                   const remaining = stock?.remaining || 0;
-                  const isCritical = remaining < 20;
+                  const isCritical = remaining < (product.minStock || 5);
+                  const cost = product.purchasePrice || 0;
+                  const mrp = product.mrp && product.mrp > 0 ? product.mrp : cost;
+                  const totalCost = cost * remaining;
+                  const totalMrp = mrp * remaining;
+                  const diff = totalMrp - totalCost;
 
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
-                      <td className="px-8 py-6">
+                      <td className="px-6 py-5">
                         <p className="font-bold text-slate-900 dark:text-white text-base">{product.name}</p>
                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-tight mt-0.5">{product.unit}</p>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-6 py-5">
                         <span className={`font-black text-xl ${isCritical ? 'text-rose-600' : 'text-emerald-600'}`}>
                           {remaining.toLocaleString()}
                         </span>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-6 py-5">
+                        <p className="font-bold text-slate-900 dark:text-white text-sm">
+                          Rs. {cost.toLocaleString()}
+                        </p>
+                        {product.companyDiscount && product.companyDiscount > 0 ? (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                            {product.companyDiscount}% off
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className="font-bold text-purple-600 dark:text-purple-400 text-sm">
+                          Rs. {mrp.toLocaleString()}
+                        </p>
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className="font-black text-blue-600 dark:text-blue-400 text-sm">
+                          Rs. {totalCost.toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-semibold">Invested capital</p>
+                      </td>
+                      <td className="px-6 py-5">
+                        <p className="font-black text-slate-900 dark:text-white text-sm">
+                          Rs. {totalMrp.toLocaleString()}
+                        </p>
+                        {diff > 0 && remaining > 0 ? (
+                          <p className="text-[10px] text-emerald-600 font-bold">
+                            +{diff.toLocaleString()} profit
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-6 py-5 text-right">
                         {isCritical ? (
-                          <div className="flex items-center gap-2 text-rose-600 bg-rose-50 dark:bg-rose-900/10 px-4 py-1.5 rounded-full text-[10px] font-black w-fit border border-rose-100 dark:border-rose-800/20">
+                          <div className="inline-flex items-center gap-1.5 text-rose-600 bg-rose-50 dark:bg-rose-900/10 px-3 py-1 rounded-full text-[10px] font-black border border-rose-100 dark:border-rose-800/20">
                             <AlertCircle className="w-3.5 h-3.5" />
                             CRITICAL
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-1.5 rounded-full text-[10px] font-black w-fit border border-emerald-100 dark:border-emerald-800/20">
+                          <div className="inline-flex items-center gap-1.5 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-100 dark:border-emerald-800/20">
                             <ArrowUpRight className="w-3.5 h-3.5" />
                             NORMAL
                           </div>
@@ -324,14 +455,14 @@ const StockPage: React.FC = () => {
                   onChange={(e) => {
                     const id = e.target.value;
                     setSelectedProductId(id);
-                    const prod = products.find(p => p.id === id);
+                    const prod = uniqueProducts.find(p => p.id === id);
                     if (prod) setPurchasePrice(prod.purchasePrice.toString());
                   }}
                   className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white appearance-none"
                   required
                 >
                   <option value="">Choose item...</option>
-                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {uniqueProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
 

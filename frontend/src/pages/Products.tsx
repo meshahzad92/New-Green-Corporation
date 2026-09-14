@@ -41,16 +41,35 @@ const Products: React.FC = () => {
   const [modalError, setModalError] = useState('');
   const categories = ['Fertilizer', 'Seeds', 'Pesticide', 'Tools', 'Other'];
 
-  // Deduplicate products: ensure only 1 product of same name and same company exists in display
+  // Deduplicate products: ensure only 1 product of same name and same company exists in display, prioritizing records with active stock
   const uniqueProducts = React.useMemo(() => {
-    const seen = new Set<string>();
-    return products.filter(p => {
-      const key = `${p.companyId}-${p.name.trim().toLowerCase()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
+    const grouped = new Map<string, typeof products>();
+    for (const p of products) {
+      const key = `${p.companyId || 'nocomp'}-${p.name.trim().toLowerCase()}`;
+      const list = grouped.get(key) || [];
+      list.push(p);
+      grouped.set(key, list);
+    }
+
+    const result: typeof products = [];
+    grouped.forEach((list) => {
+      if (list.length === 1) {
+        result.push(list[0]);
+      } else {
+        const sorted = [...list].sort((a, b) => {
+          const stockA = stocks.find(s => s.productId === a.id)?.remaining || 0;
+          const stockB = stocks.find(s => s.productId === b.id)?.remaining || 0;
+          if (stockB !== stockA) return stockB - stockA;
+          const priceA = a.purchasePrice || 0;
+          const priceB = b.purchasePrice || 0;
+          return priceB - priceA;
+        });
+        result.push(sorted[0]);
+      }
     });
-  }, [products]);
+
+    return result;
+  }, [products, stocks]);
 
   const filteredProducts = uniqueProducts
     .filter(p => {

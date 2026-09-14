@@ -4,6 +4,8 @@ from typing import Dict, List
 
 class DashboardStats(BaseModel):
     total_inventory_value: Decimal
+    total_inventory_mrp_value: Decimal = Decimal('0.00')
+    projected_inventory_profit: Decimal = Decimal('0.00')
     total_products: int
     low_stock_count: int
     today_sales_revenue: Decimal
