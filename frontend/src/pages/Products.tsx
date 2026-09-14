@@ -38,6 +38,7 @@ const Products: React.FC = () => {
   });
 
   const [modalError, setModalError] = useState('');
+  const categories = ['Fertilizer', 'Seeds', 'Pesticide', 'Tools', 'Other'];
 
   // Deduplicate products: ensure only 1 product of same name and same company exists in display
   const uniqueProducts = React.useMemo(() => {
@@ -193,7 +194,17 @@ const Products: React.FC = () => {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white text-base leading-tight">{product.name}</p>
-                          <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-md font-black uppercase mt-1 inline-block">{product.category}</span>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-md font-black uppercase">{product.category}</span>
+                            {product.purchasePrice > 0 && (
+                              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                                Cost: Rs. {product.purchasePrice.toLocaleString()}
+                                {product.mrp && product.mrp > 0 && product.companyDiscount && product.companyDiscount > 0 && (
+                                  <span className="text-slate-400 font-normal"> (MRP Rs. {product.mrp.toLocaleString()} − {product.companyDiscount}%)</span>
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>

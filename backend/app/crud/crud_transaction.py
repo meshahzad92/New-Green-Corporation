@@ -4,6 +4,8 @@ from app.models.models import StockTransaction, Sale, Product
         
 from app.schemas import transactions
 from uuid import UUID
+import uuid
+from decimal import Decimal
 from fastapi import HTTPException
 from datetime import datetime
 
@@ -38,9 +40,13 @@ def create_transaction(db: Session, transaction: transactions.StockTransactionCr
     db_transaction = StockTransaction(**transaction.model_dump())
     db.add(db_transaction)
     
-    # Update product's purchase price if it's an 'IN' transaction and price is provided
+    # Update product's purchase price, mrp, and company_discount if it's an 'IN' transaction
     if transaction.type == 'IN' and transaction.purchase_price:
         db_product.purchase_price = transaction.purchase_price
+        if transaction.mrp is not None:
+            db_product.mrp = transaction.mrp
+        if transaction.company_discount is not None:
+            db_product.company_discount = transaction.company_discount
             
     db.commit()
     db.refresh(db_transaction)
@@ -117,6 +123,93 @@ def create_sale(db: Session, sale: transactions.SaleCreate):
     db.commit()
     db.refresh(db_sale)
     return db_sale
+
+def create_bulk_sale(db: Session, bulk_sale: transactions.BulkSaleCreate):
+    """
+    Creates multiple sale items under a single invoice with atomic stock validation.
+    """
+    # 1. Validate all products and stock availability FIRST
+    products_map = {}
+    for item in bulk_sale.items:
+        db_product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not db_product:
+            raise HTTPException(status_code=404, detail=f"Product not found")
+        
+        available = get_product_stock(db, item.product_id)
+        if available < item.quantity:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Insufficient stock for '{db_product.name}'. Available: {available}, Requested: {item.quantity}"
+            )
+        products_map[item.product_id] = db_product
+
+    # 2. Generate unique invoice identifier & human-friendly invoice number
+    invoice_id = str(uuid.uuid4())
+    inv_short = uuid.uuid4().hex[:4].upper()
+    now_ts = datetime.utcnow()
+    invoice_no = f"INV-{now_ts.strftime('%y%m%d')}-{inv_short}"
+
+    # 3. Calculate total invoice amount
+    total_invoice_amount = sum(item.selling_price * item.quantity for item in bulk_sale.items)
+    
+    # 4. Determine total paid amount
+    if bulk_sale.paid_amount is not None:
+        remaining_paid = bulk_sale.paid_amount
+    else:
+        remaining_paid = total_invoice_amount if bulk_sale.payment_type == 'Debit' else Decimal('0')
+
+    created_sales = []
+
+    # 5. Create each sale and stock transaction
+    for item in bulk_sale.items:
+        db_product = products_map[item.product_id]
+        item_total = item.selling_price * item.quantity
+
+        # Allocate paid amount sequentially across items
+        if remaining_paid >= item_total:
+            item_paid = item_total
+            remaining_paid -= item_total
+        else:
+            item_paid = remaining_paid
+            remaining_paid = Decimal('0')
+
+        item_payment_type = 'Debit' if item_paid >= item_total else 'Credit'
+
+        db_sale = Sale(
+            product_id=item.product_id,
+            customer_name=bulk_sale.customer_name,
+            customer_phone=bulk_sale.customer_phone,
+            quantity=item.quantity,
+            selling_price=item.selling_price,
+            purchase_price=db_product.purchase_price,
+            total_amount=item_total,
+            paid_amount=item_paid,
+            payment_type=item_payment_type,
+            invoice_id=invoice_id,
+            invoice_no=invoice_no,
+            created_at=bulk_sale.created_at or now_ts
+        )
+        db.add(db_sale)
+        db.flush()
+
+        # Log OUT stock transaction
+        db_transaction = StockTransaction(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            party_name=f"Sale to {bulk_sale.customer_name}",
+            purchase_price=db_product.purchase_price,
+            type='OUT',
+            sale_id=db_sale.id,
+            created_at=bulk_sale.created_at or now_ts
+        )
+        db.add(db_transaction)
+        created_sales.append(db_sale)
+
+    db.commit()
+    for s in created_sales:
+        db.refresh(s)
+
+    return created_sales
 
 def update_sale(db: Session, sale_id: UUID, sale_update: transactions.SaleUpdate):
     """Update an existing sale and recalculate amounts if needed"""
@@ -209,4 +302,29 @@ def delete_sale(db: Session, sale_id: UUID):
         db.refresh(db_sale)
     
     return db_sale
+
+def delete_invoice(db: Session, invoice_id: str):
+    """Soft delete all sales and stock transactions for an invoice"""
+    sales = db.query(Sale).filter(
+        Sale.invoice_id == invoice_id,
+        Sale.is_deleted == False
+    ).all()
+    
+    if not sales:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    now = datetime.utcnow()
+    for s in sales:
+        s.is_deleted = True
+        s.deleted_at = now
+        db_stock_transaction = db.query(StockTransaction).filter(
+            StockTransaction.sale_id == s.id,
+            StockTransaction.is_deleted == False
+        ).first()
+        if db_stock_transaction:
+            db_stock_transaction.is_deleted = True
+            db_stock_transaction.deleted_at = now
+            
+    db.commit()
+    return True
 

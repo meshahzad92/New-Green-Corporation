@@ -50,14 +50,27 @@ const ProductDetail: React.FC = () => {
   // Refill Form
   const [addQty, setAddQty] = useState('0');
   const [addParty, setAddParty] = useState('');
-  const [addPrice, setAddPrice] = useState(product?.purchasePrice?.toString() || '0');
+  const [addMrp, setAddMrp] = useState('');
+  const [addDiscount, setAddDiscount] = useState('');
+
+  // Auto-calculated purchase cost: MRP × (1 - discount/100)
+  const calculatedPurchaseCost = React.useMemo(() => {
+    const mrp = parseFloat(addMrp);
+    const disc = parseFloat(addDiscount);
+    if (!isNaN(mrp) && mrp > 0 && !isNaN(disc) && disc >= 0) {
+      return mrp * (1 - disc / 100);
+    }
+    if (!isNaN(mrp) && mrp > 0) return mrp;
+    return null;
+  }, [addMrp, addDiscount]);
 
   useEffect(() => {
-    if (product) {
-      const price = latestCost > 0 ? latestCost : (product.purchasePrice || 0);
-      setAddPrice(price.toString());
+    if (product && isAddModalOpen) {
+      // Pre-fill with existing product mrp/discount if available
+      if (product.mrp && product.mrp > 0) setAddMrp(product.mrp.toString());
+      if (product.companyDiscount !== undefined) setAddDiscount(product.companyDiscount.toString());
     }
-  }, [product?.id, latestCost]);
+  }, [product?.id, isAddModalOpen]);
 
   // Sell Form
   const [sellQty, setSellQty] = useState('1');
@@ -81,12 +94,16 @@ const ProductDetail: React.FC = () => {
   const handleAddStockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = parseInt(addQty);
-    const p = parseFloat(addPrice);
-    if (q > 0 && addParty.trim()) {
-      addStock(product.id, q, addParty, p);
+    const mrp = parseFloat(addMrp);
+    const disc = parseFloat(addDiscount) || 0;
+    const purchaseCost = calculatedPurchaseCost;
+    if (q > 0 && addParty.trim() && purchaseCost !== null) {
+      addStock(product.id, q, addParty, purchaseCost, mrp, disc);
       setIsAddModalOpen(false);
       setAddQty('0');
       setAddParty('');
+      setAddMrp('');
+      setAddDiscount('');
     }
   };
 
@@ -160,9 +177,21 @@ const ProductDetail: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 flex flex-col justify-center">
           <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Stock Valuation</p>
           <h4 className="text-2xl md:text-3xl font-black text-blue-600 leading-none">Rs. {inventoryValuation.toLocaleString()}</h4>
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-            <div className="flex justify-between items-center text-xs font-bold text-slate-500 mb-2">
-              <span>Latest Cost</span>
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-2">
+            {product.mrp && product.mrp > 0 && (
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                <span>MRP</span>
+                <span className="text-slate-900 dark:text-white font-black">Rs. {product.mrp.toLocaleString()}</span>
+              </div>
+            )}
+            {product.companyDiscount !== undefined && product.companyDiscount > 0 && (
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                <span>Company Discount</span>
+                <span className="text-emerald-600 font-black">{product.companyDiscount}%</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+              <span>Purchase Cost</span>
               <span className="text-slate-900 dark:text-white font-black">Rs. {latestCost.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center text-xs font-bold text-slate-500">
@@ -285,22 +314,71 @@ const ProductDetail: React.FC = () => {
               <h2 className="text-2xl font-black">Stock Refill</h2>
               <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X /></button>
             </div>
-            <form onSubmit={handleAddStockSubmit} className="p-8 space-y-6">
+            <form onSubmit={handleAddStockSubmit} className="p-8 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Party Name (Supplier) *</label>
                 <input type="text" value={addParty} onChange={(e) => setAddParty(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white" placeholder="Required" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Refill Quantity *</label>
-                  <input type="number" min="1" value={addQty} onChange={(e) => handleNumChange(setAddQty, e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white" required />
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">MRP (Rs.) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={addMrp}
+                    onChange={(e) => setAddMrp(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                    placeholder="e.g. 1000"
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Purchase Cost *</label>
-                  <input type="number" value={addPrice} onChange={(e) => handleNumChange(setAddPrice, e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-emerald-600" required />
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Discount % *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={addDiscount}
+                    onChange={(e) => setAddDiscount(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                    placeholder="e.g. 10"
+                    required
+                  />
                 </div>
               </div>
-              <button type="submit" className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all">Add To Stock</button>
+
+              {/* Auto-calculated Purchase Cost */}
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Purchase Cost (Auto-calculated)</p>
+                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                    {calculatedPurchaseCost !== null ? `Rs. ${calculatedPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                  </p>
+                  {calculatedPurchaseCost !== null && addMrp && addDiscount && (
+                    <p className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                      Rs. {parseFloat(addMrp).toLocaleString()} × {(100 - parseFloat(addDiscount)).toFixed(0)}%
+                    </p>
+                  )}
+                </div>
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-2xl flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-emerald-600" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Refill Quantity *</label>
+                <input type="number" min="1" value={addQty} onChange={(e) => handleNumChange(setAddQty, e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white" required />
+              </div>
+
+              <button
+                type="submit"
+                disabled={calculatedPurchaseCost === null}
+                className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add To Stock
+              </button>
             </form>
           </div>
         </div>

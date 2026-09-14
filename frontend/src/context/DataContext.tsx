@@ -17,10 +17,12 @@ interface DataContextType {
   addProduct: (product: Omit<Product, 'id' | 'purchasePrice'>) => Promise<void>;
   updateProduct: (id: string, product: Omit<Product, 'id'>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
-  addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number) => Promise<void>;
+  addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number, mrp?: number, companyDiscount?: number) => Promise<void>;
   addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
+  addBulkSale: (customerName: string, items: Array<{ productId: string; quantity: number; sellingPrice: number }>, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
   updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number }>) => Promise<boolean>;
   deleteSale: (id: string) => Promise<void>;
+  deleteInvoice: (invoiceId: string) => Promise<void>;
   deleteStockTransaction: (id: string) => Promise<void>;
 }
 
@@ -70,6 +72,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           category: p.category,
           unit: p.unit,
           purchasePrice: pPrice,
+          mrp: p.mrp ? parseFloat(p.mrp) : undefined,
+          companyDiscount: p.company_discount !== null && p.company_discount !== undefined ? parseFloat(p.company_discount) : undefined,
           minStock: p.min_stock
         };
       });
@@ -105,6 +109,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         quantity: t.quantity,
         partyName: t.party_name,
         purchasePrice: parseFloat(t.purchase_price || 0),
+        mrp: t.mrp ? parseFloat(t.mrp) : undefined,
+        companyDiscount: t.company_discount !== null && t.company_discount !== undefined ? parseFloat(t.company_discount) : undefined,
         type: t.type,
         date: t.created_at
       })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -123,6 +129,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           customerPhone: s.customer_phone,
           totalAmount: total,
           paidAmount: paid,
+          invoiceId: s.invoice_id || undefined,
+          invoiceNo: s.invoice_no || undefined,
           paymentType: s.payment_type,
           date: s.created_at
         };
@@ -210,13 +218,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addStock = async (productId: string, quantity: number, partyName: string, purchasePrice: number) => {
+  const addStock = async (productId: string, quantity: number, partyName: string, purchasePrice: number, mrp?: number, companyDiscount?: number) => {
     try {
       await api.post('/transactions', {
         product_id: productId,
         quantity,
         party_name: partyName,
         purchase_price: purchasePrice,
+        mrp: mrp !== undefined ? mrp : null,
+        company_discount: companyDiscount !== undefined ? companyDiscount : null,
         type: 'IN'
       });
       await refreshData();
@@ -254,6 +264,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const addBulkSale = async (
+    customerName: string,
+    items: Array<{ productId: string; quantity: number; sellingPrice: number }>,
+    paymentType: 'Credit' | 'Debit',
+    customerPhone?: string,
+    saleDate?: Date,
+    paidAmount?: number
+  ): Promise<boolean> => {
+    try {
+      const payload: any = {
+        customer_name: customerName,
+        customer_phone: customerPhone || undefined,
+        payment_type: paymentType,
+        items: items.map(item => ({
+          product_id: item.productId,
+          quantity: item.quantity,
+          selling_price: item.sellingPrice
+        }))
+      };
+
+      if (paidAmount !== undefined && !isNaN(paidAmount)) {
+        payload.paid_amount = paidAmount;
+      }
+
+      if (saleDate) {
+        payload.created_at = saleDate.toISOString();
+      }
+
+      await api.post('/sales/bulk', payload);
+      await refreshData();
+      return true;
+    } catch (error) {
+      console.error('Failed to add bulk sale:', error);
+      return false;
+    }
+  };
+
   const updateSale = async (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number }>): Promise<boolean> => {
     try {
       const payload: any = {};
@@ -283,6 +330,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteInvoice = async (invoiceId: string) => {
+    try {
+      await api.delete(`/sales/invoice/${invoiceId}`);
+      await refreshData();
+    } catch (error) {
+      console.error('Failed to delete invoice:', error);
+    }
+  };
+
   const deleteStockTransaction = async (id: string) => {
     try {
       await api.delete(`/transactions/${id}`);
@@ -298,7 +354,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addCompany, updateCompany, deleteCompany,
       addProduct, updateProduct, deleteProduct,
       addStock, deleteStockTransaction,
-      addSale, updateSale, deleteSale
+      addSale, addBulkSale, updateSale, deleteSale, deleteInvoice
     }}>
       {children}
     </DataContext.Provider>

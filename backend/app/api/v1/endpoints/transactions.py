@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from app.db.session import get_db
-from app.schemas.transactions import Sale, SaleCreate, SaleUpdate, StockTransaction, StockTransactionCreate
+from app.schemas.transactions import Sale, SaleCreate, SaleUpdate, StockTransaction, StockTransactionCreate, BulkSaleCreate
 from app.crud import crud_transaction
 from app.api import deps
 from app.models.models import User
@@ -46,6 +46,14 @@ def create_sale(
 ):
     return crud_transaction.create_sale(db=db, sale=sale)
 
+@router.post("/sales/bulk", response_model=List[Sale], status_code=status.HTTP_201_CREATED)
+def create_bulk_sale(
+    bulk_sale: BulkSaleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    return crud_transaction.create_bulk_sale(db=db, bulk_sale=bulk_sale)
+
 @router.put("/sales/{sale_id}", response_model=Sale)
 def update_sale(
     sale_id: UUID,
@@ -75,4 +83,15 @@ def delete_sale(
     db_sale = crud_transaction.delete_sale(db, sale_id=sale_id)
     if not db_sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+    return None
+
+@router.delete("/sales/invoice/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_invoice(
+    invoice_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    success = crud_transaction.delete_invoice(db, invoice_id=invoice_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Invoice not found")
     return None

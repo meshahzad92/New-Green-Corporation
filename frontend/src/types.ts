@@ -11,7 +11,9 @@ export interface Product {
   name: string;
   category: string;
   unit: string;
-  purchasePrice: number; // Represents the LATEST purchase price
+  purchasePrice: number; // Represents the LATEST purchase price (MRP - discount)
+  mrp?: number;          // Maximum Retail Price set by company
+  companyDiscount?: number; // Discount % given by company (e.g. 10 = 10%)
   minStock: number;
 }
 
@@ -28,6 +30,8 @@ export interface StockTransaction {
   quantity: number;
   partyName: string;
   purchasePrice: number;
+  mrp?: number;
+  companyDiscount?: number;
   type: 'IN' | 'OUT';
   date: string;
 }
@@ -42,6 +46,8 @@ export interface Sale {
   customerPhone?: string; // Optional phone number for credit follow-ups
   totalAmount: number;
   paidAmount?: number;
+  invoiceId?: string;
+  invoiceNo?: string;
   paymentType: 'Credit' | 'Debit'; // Credit = Unpaid (Red), Debit = Paid (Green)
   date: string;
 }

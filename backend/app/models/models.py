@@ -22,6 +22,8 @@ class Product(Base):
     category = Column(Text)
     unit = Column(Text, nullable=False)
     purchase_price = Column(Numeric(12, 2), default=0.0)
+    mrp = Column(Numeric(12, 2), nullable=True)
+    company_discount = Column(Numeric(5, 2), nullable=True, default=0)
     min_stock = Column(Integer, default=5)
 
     company = relationship("Company", back_populates="products")
@@ -35,6 +37,8 @@ class StockTransaction(Base):
     quantity = Column(Integer, nullable=False)
     party_name = Column(Text)
     purchase_price = Column(Numeric(12, 2))
+    mrp = Column(Numeric(12, 2), nullable=True)
+    company_discount = Column(Numeric(5, 2), nullable=True)
     type = Column(Text, CheckConstraint("type IN ('IN', 'OUT')"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     sale_id = Column(UUID(as_uuid=True), ForeignKey("sales.id", ondelete="CASCADE"), nullable=True)
@@ -57,6 +61,8 @@ class Sale(Base):
     purchase_price = Column(Numeric(12, 2), nullable=False)
     total_amount = Column(Numeric(12, 2), nullable=False)
     paid_amount = Column(Numeric(12, 2), nullable=True)
+    invoice_id = Column(String(50), nullable=True, index=True)
+    invoice_no = Column(String(50), nullable=True, index=True)
     payment_type = Column(Text, CheckConstraint("payment_type IN ('Credit', 'Debit')"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

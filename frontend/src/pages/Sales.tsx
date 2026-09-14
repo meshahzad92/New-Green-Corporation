@@ -138,6 +138,7 @@ const SalesPage: React.FC = () => {
       date: string;
       totalAmount: number;
       paidAmount: number;
+      totalProfit: number;
       items: Array<{
         saleId: string;
         productId: string;
@@ -145,7 +146,9 @@ const SalesPage: React.FC = () => {
         companyName?: string;
         quantity: number;
         sellingPrice: number;
+        purchasePrice: number;
         totalAmount: number;
+        itemProfit: number;
       }>;
     } } = {};
 
@@ -156,6 +159,7 @@ const SalesPage: React.FC = () => {
       const sPaid = s.paidAmount !== undefined && s.paidAmount !== null
         ? s.paidAmount
         : (s.paymentType === 'Debit' ? s.totalAmount : 0);
+      const itemProfit = (s.sellingPrice - s.purchasePrice) * s.quantity;
 
       if (!groups[key]) {
         groups[key] = {
@@ -167,12 +171,14 @@ const SalesPage: React.FC = () => {
           date: s.date,
           totalAmount: 0,
           paidAmount: 0,
+          totalProfit: 0,
           items: []
         };
       }
 
       groups[key].totalAmount += s.totalAmount;
       groups[key].paidAmount += sPaid;
+      groups[key].totalProfit += itemProfit;
       groups[key].items.push({
         saleId: s.id,
         productId: s.productId,
@@ -180,7 +186,9 @@ const SalesPage: React.FC = () => {
         companyName: company?.name,
         quantity: s.quantity,
         sellingPrice: s.sellingPrice,
-        totalAmount: s.totalAmount
+        purchasePrice: s.purchasePrice,
+        totalAmount: s.totalAmount,
+        itemProfit
       });
     });
 
@@ -598,6 +606,7 @@ const SalesPage: React.FC = () => {
                 <th className="px-8 py-6 text-center">Volume</th>
                 <th className="px-8 py-6 text-center">Payment Status</th>
                 <th className="px-8 py-6 text-right">Total Invoice</th>
+                <th className="px-8 py-6 text-right text-emerald-500">Profit</th>
                 <th className="px-8 py-6 text-right">Action</th>
               </tr>
             </thead>
@@ -685,6 +694,14 @@ const SalesPage: React.FC = () => {
                           <span className="text-slate-400 dark:text-slate-500 font-medium">✓ Cleared</span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <span className={`font-black text-sm ${group.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {group.totalProfit >= 0 ? '+' : ''}Rs. {Math.abs(group.totalProfit).toLocaleString()}
+                      </span>
+                      {group.items.length > 1 && (
+                        <p className="text-[9px] text-slate-400 font-bold mt-0.5 uppercase">{group.items.length} items</p>
+                      )}
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
