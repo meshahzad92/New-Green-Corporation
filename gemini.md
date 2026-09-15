@@ -243,3 +243,23 @@ To counteract Supabase cloud latency and accidental double-clicks:
    - Notes: Check if identical note was created in the last 15 seconds.
    - Stock Refill: Check if identical stock transaction was created in the last 20 seconds.
    - Sales: Check if bulk sale with same customer, items, and total was created in the last 20 seconds.
+
+---
+
+## 7. Changes Log — Session 2026-09-15
+
+### 10. **Sale Date Editing in Edit Sale Modal**
+- `SaleUpdate` Pydantic schema (`backend/app/schemas/transactions.py`) now includes an optional `created_at: Optional[datetime]` field.
+- `update_sale()` in `backend/app/crud/crud_transaction.py` applies `created_at` to both the `Sale` row and its linked `StockTransaction` row when provided (keeps them in sync).
+- `updateSale()` in `frontend/src/context/DataContext.tsx` accepts an optional `saleDate: Date` field in the updates object and maps it to `created_at` in the API payload.
+- `frontend/src/pages/Sales.tsx` edit modal:
+  - `editModal` state extended with `saleDate: Date` (initialized from `sale.date` when opening).
+  - A `CustomDatePicker` field (labeled "Sale Date", `maxDate = today`) is rendered between the phone number and quantity fields.
+  - `handleSaveEdit` passes `saleDate` into the `updateSale` call.
+  - **Scope**: Date editing only available for single-item sales (the pencil ✏️ icon only shows for non-invoice sales).
+
+### 11. **Pre-fill Sale Date from Filter Selection in Add Sale Modal**
+- `AddSaleModalProps` in `frontend/src/components/AddSaleModal.tsx` now accepts `initialDate?: Date | null`.
+- The `useEffect` that resets the modal on open now uses `initialDate ?? new Date()` to set `addSaleDate`.
+- `frontend/src/pages/Sales.tsx` passes `specificDate` (the currently-selected filter date) as `initialDate` to `<AddSaleModal>`.
+- **Result**: If you select "Yesterday" or any custom date from the date picker on the Sales page and then click "ADD SALE", the Add Sale modal pre-populates its Sale Date field with that date — no need to re-select it.

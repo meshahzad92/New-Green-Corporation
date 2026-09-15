@@ -9,6 +9,7 @@ const StockPage: React.FC = () => {
   const { products, stocks, stockTransactions, companies, addStock, deleteStockTransaction } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [showLowStock, setShowLowStock] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'balance' | 'logs'>('balance');
   const [specificDate, setSpecificDate] = useState<Date | null>(null); // Use Date object
@@ -60,7 +61,9 @@ const StockPage: React.FC = () => {
   const filteredProducts = uniqueProducts.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCompany = selectedCompany === 'all' || p.companyId === selectedCompany;
-    return matchesSearch && matchesCompany;
+    const stock = stocks.find(s => s.productId === p.id);
+    const matchesLowStock = !showLowStock || (stock?.remaining || 0) < (p.minStock || 5);
+    return matchesSearch && matchesCompany && matchesLowStock;
   });
 
   // Stock Valuation Summary: calculates total capital investment (at purchase cost), retail return (at MRP), and profit potential
@@ -165,14 +168,46 @@ const StockPage: React.FC = () => {
         </div>
 
         {activeTab === 'balance' ? (
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 px-1 items-center no-scrollbar w-full md:flex-1">
-            <span className="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Companies:</span>
-            <button onClick={() => setSelectedCompany('all')} className={`px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap ${selectedCompany === 'all' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>All</button>
-            {companies.map(company => (
-              <button key={company.id} onClick={() => setSelectedCompany(company.id)} className={`px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap ${selectedCompany === company.id ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>
-                {company.name}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <select
+                value={selectedCompany}
+                onChange={(e) => { setSelectedCompany(e.target.value); }}
+                className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white outline-none focus:border-emerald-500 min-w-[160px]"
+              >
+                <option value="all">🏢 All Companies</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => setShowLowStock(prev => !prev)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
+                showLowStock
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-600/20'
+                  : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-rose-400 hover:text-rose-500'
+              }`}
+            >
+              <AlertCircle className="w-4 h-4" />
+              Low Stock
+              {showLowStock && selectedCompany !== 'all' && (
+                <span className="text-[10px] font-black bg-white/20 px-1.5 py-0.5 rounded-md">
+                  {companies.find(c => c.id === selectedCompany)?.name}
+                </span>
+              )}
+            </button>
+
+            {(selectedCompany !== 'all' || showLowStock) && (
+              <button
+                onClick={() => { setSelectedCompany('all'); setShowLowStock(false); }}
+                className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest"
+              >
+                ✕ Clear Filters
               </button>
-            ))}
+            )}
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-3">

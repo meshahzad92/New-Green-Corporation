@@ -27,9 +27,10 @@ interface AddSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialProductId?: string;
+  initialDate?: Date | null;
 }
 
-const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialProductId }) => {
+const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialProductId, initialDate }) => {
   const { companies, products, stocks, addBulkSale } = useData();
 
   const [saleItems, setSaleItems] = useState<AddSaleItem[]>([createInitialSaleItem()]);
@@ -49,7 +50,8 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
       setAddSalePaidAmount('');
       setAddSalePaymentType('Debit');
       setAddSaleError('');
-      setAddSaleDate(new Date());
+      // Use the pre-selected filter date if provided, otherwise default to today
+      setAddSaleDate(initialDate ?? new Date());
 
       if (initialProductId) {
         const prod = products.find(p => p.id === initialProductId);
@@ -59,7 +61,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
         setSaleItems([createInitialSaleItem()]);
       }
     }
-  }, [isOpen, initialProductId, products]);
+  }, [isOpen, initialProductId, initialDate, products]);
 
   const modalGrandTotal = useMemo(() => {
     return saleItems.reduce((acc, item) => {

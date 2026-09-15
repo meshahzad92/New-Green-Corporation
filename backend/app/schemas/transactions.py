@@ -64,6 +64,7 @@ class SaleUpdate(BaseModel):
     invoice_id: Optional[str] = None
     invoice_no: Optional[str] = None
     payment_type: Optional[Literal['Credit', 'Debit']] = None
+    created_at: Optional[datetime] = None
 
 class Sale(SaleBase):
     id: UUID

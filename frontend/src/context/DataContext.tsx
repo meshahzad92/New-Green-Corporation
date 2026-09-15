@@ -20,7 +20,7 @@ interface DataContextType {
   addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number, mrp?: number, companyDiscount?: number) => Promise<void>;
   addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
   addBulkSale: (customerName: string, items: Array<{ productId: string; quantity: number; sellingPrice: number }>, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
-  updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number }>) => Promise<boolean>;
+  updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date }>) => Promise<boolean>;
   deleteSale: (id: string) => Promise<void>;
   deleteInvoice: (invoiceId: string) => Promise<void>;
   deleteStockTransaction: (id: string) => Promise<void>;
@@ -375,7 +375,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateSale = async (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number }>): Promise<boolean> => {
+  const updateSale = async (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date }>): Promise<boolean> => {
     try {
       const payload: any = {};
       if (updates.productId !== undefined) payload.product_id = updates.productId;
@@ -385,6 +385,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.sellingPrice !== undefined) payload.selling_price = updates.sellingPrice;
       if (updates.paymentType !== undefined) payload.payment_type = updates.paymentType;
       if (updates.paidAmount !== undefined) payload.paid_amount = updates.paidAmount;
+      if (updates.saleDate !== undefined) payload.created_at = updates.saleDate.toISOString();
 
       await api.put(`/sales/${id}`, payload);
       await refreshData();

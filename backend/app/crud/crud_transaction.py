@@ -343,6 +343,19 @@ def update_sale(db: Session, sale_id: UUID, sale_update: transactions.SaleUpdate
             # Update party name if customer name changed
             if sale_update.customer_name is not None:
                 db_stock_transaction.party_name = f"Sale to {db_sale.customer_name}"
+            
+            # Sync sale date to linked stock transaction
+            if sale_update.created_at is not None:
+                db_stock_transaction.created_at = sale_update.created_at
+    
+    # If only date changed (no product/quantity change), still sync stock transaction date
+    elif sale_update.created_at is not None:
+        db_stock_transaction = db.query(StockTransaction).filter(
+            StockTransaction.sale_id == sale_id,
+            StockTransaction.is_deleted == False
+        ).first()
+        if db_stock_transaction:
+            db_stock_transaction.created_at = sale_update.created_at
     
     db.commit()
     db.refresh(db_sale)

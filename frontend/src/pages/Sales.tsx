@@ -40,6 +40,7 @@ const SalesPage: React.FC = () => {
     sellingPrice: number;
     paidAmount: number;
     paymentType: 'Credit' | 'Debit';
+    saleDate: Date;
   }>({
     isOpen: false,
     sale: null,
@@ -49,11 +50,104 @@ const SalesPage: React.FC = () => {
     quantity: 0,
     sellingPrice: 0,
     paidAmount: 0,
-    paymentType: 'Credit'
+    paymentType: 'Credit',
+    saleDate: new Date()
   });
 
   // Add Sale modal state
   const [isAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
+
+  // Invoice edit modal state (for multi-item invoices)
+  const [editInvoiceModal, setEditInvoiceModal] = useState<{
+    isOpen: boolean;
+    invoiceId: string;
+    saleIds: string[];          // all sale IDs in this invoice
+    itemTotals: number[];       // totalAmount per item (for payment redistribution)
+    customerName: string;
+    customerPhone: string;
+    saleDate: Date;
+    totalInvoice: number;
+    paidAmount: number;
+    paymentType: 'Credit' | 'Debit';
+  }>({
+    isOpen: false,
+    invoiceId: '',
+    saleIds: [],
+    itemTotals: [],
+    customerName: '',
+    customerPhone: '',
+    saleDate: new Date(),
+    totalInvoice: 0,
+    paidAmount: 0,
+    paymentType: 'Debit'
+  });
+
+  const [isSubmittingInvoiceEdit, setIsSubmittingInvoiceEdit] = useState(false);
+
+  const handleEditInvoice = (group: {
+    invoiceId?: string;
+    customerName: string;
+    customerPhone?: string;
+    date: string;
+    totalAmount: number;
+    paidAmount: number;
+    paymentType: 'Credit' | 'Debit';
+    items: Array<{ saleId: string; totalAmount: number }>;
+  }) => {
+    const saleIds = group.items.map(i => i.saleId);
+    const itemTotals = group.items.map(i => i.totalAmount);
+    setEditInvoiceModal({
+      isOpen: true,
+      invoiceId: group.invoiceId || '',
+      saleIds,
+      itemTotals,
+      customerName: group.customerName,
+      customerPhone: group.customerPhone || '',
+      saleDate: new Date(group.date),
+      totalInvoice: group.totalAmount,
+      paidAmount: group.paidAmount,
+      paymentType: group.paymentType
+    });
+  };
+
+  const handleSaveInvoiceEdit = async () => {
+    if (isSubmittingInvoiceEdit) return;
+    setIsSubmittingInvoiceEdit(true);
+    try {
+      // Distribute paid amount sequentially across items (fill item 1 first, then item 2 …)
+      let remaining = editInvoiceModal.paidAmount;
+      const updates = editInvoiceModal.saleIds.map((saleId, idx) => {
+        const itemTotal = editInvoiceModal.itemTotals[idx];
+        const itemPaid = Math.min(remaining, itemTotal);
+        remaining = Math.max(0, remaining - itemTotal);
+        const itemPaymentType: 'Credit' | 'Debit' = itemPaid >= itemTotal ? 'Debit' : 'Credit';
+        return { saleId, itemPaid, itemPaymentType };
+      });
+
+      // Update all items in parallel
+      const results = await Promise.all(
+        updates.map(({ saleId, itemPaid, itemPaymentType }) =>
+          updateSale(saleId, {
+            customerName: editInvoiceModal.customerName,
+            customerPhone: editInvoiceModal.customerPhone,
+            saleDate: editInvoiceModal.saleDate,
+            paidAmount: itemPaid,
+            paymentType: itemPaymentType
+          })
+        )
+      );
+
+      if (results.every(Boolean)) {
+        setEditInvoiceModal(prev => ({ ...prev, isOpen: false }));
+      }
+    } catch (err) {
+      console.error('Failed to update invoice:', err);
+    } finally {
+      setIsSubmittingInvoiceEdit(false);
+    }
+  };
+
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
@@ -222,8 +316,6 @@ const SalesPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-
   const handleEditSale = (sale: Sale) => {
     const paid = sale.paidAmount !== undefined && sale.paidAmount !== null
       ? sale.paidAmount
@@ -238,7 +330,8 @@ const SalesPage: React.FC = () => {
       quantity: sale.quantity,
       sellingPrice: sale.sellingPrice,
       paidAmount: paid,
-      paymentType: sale.paymentType
+      paymentType: sale.paymentType,
+      saleDate: new Date(sale.date)
     });
   };
 
@@ -258,7 +351,8 @@ const SalesPage: React.FC = () => {
         quantity: editModal.quantity,
         sellingPrice: editModal.sellingPrice,
         paidAmount: paid,
-        paymentType: finalPaymentType
+        paymentType: finalPaymentType,
+        saleDate: editModal.saleDate
       });
 
       if (success) {
@@ -271,7 +365,8 @@ const SalesPage: React.FC = () => {
           quantity: 0,
           sellingPrice: 0,
           paidAmount: 0,
-          paymentType: 'Credit'
+          paymentType: 'Credit',
+          saleDate: new Date()
         });
       }
     } catch (err) {
@@ -542,11 +637,20 @@ const SalesPage: React.FC = () => {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!isMultiItem && firstSale && (
+                        {/* Edit — single item uses editSale, multi-item uses editInvoice */}
+                        {!isMultiItem && firstSale ? (
                           <button
                             onClick={() => handleEditSale(firstSale)}
                             className="p-2 text-slate-400 hover:text-blue-500 transition-colors bg-slate-50 dark:bg-slate-800 rounded-lg"
                             title="Edit Sale"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEditInvoice(group)}
+                            className="p-2 text-slate-400 hover:text-blue-500 transition-colors bg-slate-50 dark:bg-slate-800 rounded-lg"
+                            title="Edit Invoice"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -588,6 +692,7 @@ const SalesPage: React.FC = () => {
       <AddSaleModal
         isOpen={isAddSaleModalOpen}
         onClose={() => setIsAddSaleModalOpen(false)}
+        initialDate={specificDate}
       />
 
       {/* Edit Sale Modal */}
@@ -638,6 +743,17 @@ const SalesPage: React.FC = () => {
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
                   placeholder="03001234567"
                   maxLength={11}
+                />
+              </div>
+
+              {/* Sale Date */}
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Sale Date</label>
+                <CustomDatePicker
+                  selected={editModal.saleDate}
+                  onChange={(date) => setEditModal({ ...editModal, saleDate: date || new Date() })}
+                  placeholderText="Select sale date..."
+                  maxDate={new Date()}
                 />
               </div>
 
@@ -773,6 +889,134 @@ const SalesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Invoice Modal — for multi-item invoices */}
+      {editInvoiceModal.isOpen && (() => {
+        const left = Math.max(0, editInvoiceModal.totalInvoice - editInvoiceModal.paidAmount);
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+              <div className="p-8 border-b border-slate-200 dark:border-slate-700 flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white">Edit Invoice</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Update details for all {editInvoiceModal.saleIds.length} items in this invoice
+                  </p>
+                </div>
+                <button onClick={() => setEditInvoiceModal(prev => ({ ...prev, isOpen: false }))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                {/* Customer Name */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Customer Name</label>
+                  <input
+                    type="text"
+                    value={editInvoiceModal.customerName}
+                    onChange={(e) => setEditInvoiceModal(prev => ({ ...prev, customerName: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                    placeholder="Enter customer name"
+                  />
+                </div>
+
+                {/* Customer Phone */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Customer Phone (Optional)</label>
+                  <input
+                    type="tel"
+                    value={editInvoiceModal.customerPhone}
+                    onChange={(e) => setEditInvoiceModal(prev => ({ ...prev, customerPhone: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                    placeholder="03001234567"
+                    maxLength={11}
+                  />
+                </div>
+
+                {/* Sale Date */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Sale Date</label>
+                  <CustomDatePicker
+                    selected={editInvoiceModal.saleDate}
+                    onChange={(date) => setEditInvoiceModal(prev => ({ ...prev, saleDate: date || new Date() }))}
+                    placeholderText="Select sale date..."
+                    maxDate={new Date()}
+                  />
+                </div>
+
+                {/* Paid Amount */}
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Amount Paid (Rs.)</label>
+                      <button
+                        type="button"
+                        onClick={() => setEditInvoiceModal(prev => ({ ...prev, paidAmount: prev.totalInvoice, paymentType: 'Debit' }))}
+                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Set Full Payment
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      value={editInvoiceModal.paidAmount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setEditInvoiceModal(prev => ({
+                          ...prev,
+                          paidAmount: val,
+                          paymentType: val >= prev.totalInvoice ? 'Debit' : 'Credit'
+                        }));
+                      }}
+                      className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-emerald-600 text-base"
+                      min="0"
+                      step="any"
+                    />
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4 border-2 border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black uppercase tracking-widest text-slate-400">Total Invoice:</span>
+                      <span className="text-xl font-black text-slate-900 dark:text-white">Rs. {editInvoiceModal.totalInvoice.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold">
+                      <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {editInvoiceModal.paidAmount.toLocaleString()}</span>
+                      <span className={left > 0 ? 'text-rose-600 dark:text-rose-400 font-extrabold' : 'text-slate-400'}>
+                        {left > 0 ? `Left: Rs. ${left.toLocaleString()}` : '✓ Fully Paid'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-slate-200 dark:border-slate-700 flex gap-4">
+                <button
+                  onClick={() => setEditInvoiceModal(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveInvoiceEdit}
+                  disabled={isSubmittingInvoiceEdit}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl uppercase tracking-widest shadow-xl shadow-emerald-600/30 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmittingInvoiceEdit ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    'Save Invoice Changes'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
