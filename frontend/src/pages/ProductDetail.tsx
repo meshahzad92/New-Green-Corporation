@@ -77,24 +77,50 @@ const ProductDetail: React.FC = () => {
   const [addParty, setAddParty] = useState('');
   const [addMrp, setAddMrp] = useState('');
   const [addDiscount, setAddDiscount] = useState('');
+  const [addPurchasePrice, setAddPurchasePrice] = useState('');
+  const [showDiscount, setShowDiscount] = useState(false);
   const [isSubmittingStock, setIsSubmittingStock] = useState(false);
 
-  // Auto-calculated purchase cost: MRP × (1 - discount/100)
+  // Auto-calculated purchase cost when discount is applied: MRP × (1 - discount/100)
   const calculatedPurchaseCost = React.useMemo(() => {
+    if (!showDiscount) return null;
     const mrp = parseFloat(addMrp);
     const disc = parseFloat(addDiscount);
     if (!isNaN(mrp) && mrp > 0 && !isNaN(disc) && disc >= 0) {
-      return mrp * (1 - disc / 100);
+      return Number((mrp * (1 - disc / 100)).toFixed(2));
     }
-    if (!isNaN(mrp) && mrp > 0) return mrp;
     return null;
-  }, [addMrp, addDiscount]);
+  }, [showDiscount, addMrp, addDiscount]);
+
+  // Effective purchase price for submission
+  const effectivePurchasePrice = React.useMemo(() => {
+    if (showDiscount && calculatedPurchaseCost !== null) {
+      return calculatedPurchaseCost;
+    }
+    const manual = parseFloat(addPurchasePrice);
+    return !isNaN(manual) && manual >= 0 ? manual : null;
+  }, [showDiscount, calculatedPurchaseCost, addPurchasePrice]);
 
   useEffect(() => {
     if (product && isAddModalOpen) {
-      // Pre-fill with existing product mrp/discount if available
+      // Pre-fill with existing product mrp if available
       if (product.mrp && product.mrp > 0) setAddMrp(product.mrp.toString());
-      if (product.companyDiscount !== undefined) setAddDiscount(product.companyDiscount.toString());
+      else setAddMrp('');
+
+      // If product already has discount > 0, activate discount mode by default
+      if (product.companyDiscount !== undefined && product.companyDiscount !== null && product.companyDiscount > 0) {
+        setShowDiscount(true);
+        setAddDiscount(product.companyDiscount.toString());
+        setAddPurchasePrice('');
+      } else {
+        setShowDiscount(false);
+        setAddDiscount('');
+        if (product.purchasePrice !== undefined && product.purchasePrice !== null && product.purchasePrice > 0) {
+          setAddPurchasePrice(product.purchasePrice.toString());
+        } else {
+          setAddPurchasePrice('');
+        }
+      }
     }
   }, [product?.id, isAddModalOpen]);
 
@@ -113,9 +139,9 @@ const ProductDetail: React.FC = () => {
     e.preventDefault();
     if (isSubmittingStock) return;
     const q = parseInt(addQty);
-    const mrp = parseFloat(addMrp);
-    const disc = parseFloat(addDiscount) || 0;
-    const purchaseCost = calculatedPurchaseCost;
+    const mrp = addMrp ? parseFloat(addMrp) : undefined;
+    const disc = showDiscount && addDiscount ? parseFloat(addDiscount) : undefined;
+    const purchaseCost = effectivePurchasePrice;
     if (q > 0 && addParty.trim() && purchaseCost !== null) {
       setIsSubmittingStock(true);
       try {
@@ -125,6 +151,8 @@ const ProductDetail: React.FC = () => {
         setAddParty('');
         setAddMrp('');
         setAddDiscount('');
+        setAddPurchasePrice('');
+        setShowDiscount(false);
       } catch (err) {
         console.error('Failed to refill stock:', err);
       } finally {
@@ -319,53 +347,121 @@ const ProductDetail: React.FC = () => {
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Party Name (Supplier) *</label>
                 <input type="text" value={addParty} onChange={(e) => setAddParty(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white" placeholder="Required" required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">MRP (Rs.) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={addMrp}
-                    onChange={(e) => setAddMrp(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
-                    placeholder="e.g. 1000"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Discount % *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="any"
-                    value={addDiscount}
-                    onChange={(e) => setAddDiscount(e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
-                    placeholder="e.g. 10"
-                    required
-                  />
-                </div>
+              {/* Pricing Section Header with Blue Toggle */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                  Pricing Details
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !showDiscount;
+                    setShowDiscount(next);
+                    if (!next) {
+                      setAddDiscount('');
+                      if (calculatedPurchaseCost !== null) {
+                        setAddPurchasePrice(calculatedPurchaseCost.toString());
+                      }
+                    } else {
+                      if (addPurchasePrice && (!addMrp || parseFloat(addMrp) === 0)) {
+                        setAddMrp(addPurchasePrice);
+                      }
+                    }
+                  }}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  {showDiscount ? '− Hide Discount' : '% Discount (Optional)'}
+                </button>
               </div>
 
-              {/* Auto-calculated Purchase Cost */}
-              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-5 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Purchase Cost (Auto-calculated)</p>
-                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
-                    {calculatedPurchaseCost !== null ? `Rs. ${calculatedPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                  </p>
-                  {calculatedPurchaseCost !== null && addMrp && addDiscount && (
-                    <p className="text-[10px] text-emerald-600 font-bold mt-0.5">
-                      Rs. {parseFloat(addMrp).toLocaleString()} × {(100 - parseFloat(addDiscount)).toFixed(0)}%
-                    </p>
-                  )}
+              {showDiscount ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-500">MRP (Rs.) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={addMrp}
+                        onChange={(e) => setAddMrp(e.target.value)}
+                        className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                        placeholder="e.g. 1000"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center justify-between">
+                        <span>Discount % *</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        value={addDiscount}
+                        onChange={(e) => setAddDiscount(e.target.value)}
+                        className="w-full px-6 py-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 focus:border-blue-500 outline-none font-bold text-blue-600 dark:text-blue-400"
+                        placeholder="e.g. 10"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auto-calculated Purchase Cost */}
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl p-5 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                          Purchase Cost (Auto-calculated)
+                        </p>
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 font-bold">
+                          Auto
+                        </span>
+                      </div>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                        {calculatedPurchaseCost !== null ? `Rs. ${calculatedPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </p>
+                      {calculatedPurchaseCost !== null && addMrp && addDiscount && (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                          Rs. {parseFloat(addMrp).toLocaleString()} − {parseFloat(addDiscount)}%
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-2xl flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-500">MRP (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={addMrp}
+                      onChange={(e) => setAddMrp(e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                      placeholder="e.g. 1000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Purchase Price *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={addPurchasePrice}
+                      onChange={(e) => handleNumChange(setAddPurchasePrice, e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-emerald-600 dark:text-emerald-400"
+                      placeholder="e.g. 900"
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-2xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-emerald-600" />
-                </div>
-              </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Refill Quantity *</label>
@@ -374,7 +470,7 @@ const ProductDetail: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={calculatedPurchaseCost === null || isSubmittingStock}
+                disabled={effectivePurchasePrice === null || isSubmittingStock}
                 className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmittingStock ? (

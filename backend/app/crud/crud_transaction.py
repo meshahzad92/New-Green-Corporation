@@ -59,8 +59,7 @@ def create_transaction(db: Session, transaction: transactions.StockTransactionCr
         db_product.purchase_price = transaction.purchase_price
         if transaction.mrp is not None:
             db_product.mrp = transaction.mrp
-        if transaction.company_discount is not None:
-            db_product.company_discount = transaction.company_discount
+        db_product.company_discount = transaction.company_discount if transaction.company_discount is not None else Decimal('0.00')
             
     db.commit()
     db.refresh(db_transaction)

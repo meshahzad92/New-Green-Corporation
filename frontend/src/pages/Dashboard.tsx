@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import StatCard from '../components/StatCard';
-import { Building2, Package, TrendingUp, DollarSign, Banknote, CreditCard, Wallet, Loader2, ShoppingCart, TrendingDown } from 'lucide-react';
+import { Building2, Package, TrendingUp, DollarSign, Banknote, CreditCard, Wallet, Loader2, ShoppingCart, TrendingDown, Eye, EyeOff } from 'lucide-react';
 import api from '../utils/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -10,6 +10,13 @@ const Dashboard: React.FC = () => {
   const { products, sales, loading: dataLoading } = useData();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Banking-style amount visibility toggle (hidden by default)
+  const [amountsVisible, setAmountsVisible] = useState(false);
+  const maskAmount = (value: string | number) =>
+    amountsVisible ? value : 'Rs. ••••••';
+  const maskRaw = (value: string) =>
+    amountsVisible ? value : '••••••';
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -86,9 +93,23 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Business Dashboard</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Real-time summary of your financial position</p>
         </div>
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-sm font-bold flex items-center gap-2">
-          <TrendingUp className="w-4 h-4" />
-          Live Updates
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-sm font-bold flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Live Updates
+          </div>
+          {/* Banking-style hide/show amounts toggle */}
+          <button
+            onClick={() => setAmountsVisible(prev => !prev)}
+            title={amountsVisible ? 'Hide amounts' : 'Show amounts'}
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all border shadow-sm ${
+              amountsVisible
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/20'
+                : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:text-emerald-500'
+            }`}
+          >
+            {amountsVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
         </div>
       </div>
 
@@ -96,28 +117,28 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="Total Sales Today"
-          value={`Rs. ${Number(stats.today_sales_revenue || 0).toLocaleString()}`}
+          value={maskAmount(`Rs. ${Number(stats.today_sales_revenue || 0).toLocaleString()}`)}
           icon={ShoppingCart}
           color="blue"
           trend="Today's revenue"
         />
         <StatCard
           label="Sales Profit"
-          value={`Rs. ${Number(stats.today_sales_profit || 0).toLocaleString()}`}
+          value={maskAmount(`Rs. ${Number(stats.today_sales_profit || 0).toLocaleString()}`)}
           icon={DollarSign}
           color="green"
           trend="From sales"
         />
         <StatCard
           label="Total Expense"
-          value={`Rs. ${Number(stats.total_expense || 0).toLocaleString()}`}
+          value={maskAmount(`Rs. ${Number(stats.total_expense || 0).toLocaleString()}`)}
           icon={TrendingDown}
           color={Number(stats.total_expense || 0) >= 0 ? "green" : "red"}
           trend={Number(stats.total_expense || 0) >= 0 ? "Net income" : "Net expense"}
         />
         <StatCard
           label="Net Profit"
-          value={`Rs. ${Number(stats.net_profit || 0).toLocaleString()}`}
+          value={maskAmount(`Rs. ${Number(stats.net_profit || 0).toLocaleString()}`)}
           icon={TrendingUp}
           color={Number(stats.net_profit || 0) >= 0 ? "green" : "red"}
           trend="After expenses"
@@ -128,14 +149,14 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           label="Credit (Pending)"
-          value={`Rs. ${totalCredit.toLocaleString()}`}
+          value={maskAmount(`Rs. ${totalCredit.toLocaleString()}`)}
           icon={CreditCard}
           color="red"
           trend="To be received"
         />
         <StatCard
           label="Debit (Cash)"
-          value={`Rs. ${totalDebit.toLocaleString()}`}
+          value={maskAmount(`Rs. ${totalDebit.toLocaleString()}`)}
           icon={Wallet}
           color="blue"
           trend="Received"
@@ -217,7 +238,7 @@ const Dashboard: React.FC = () => {
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
-                Rs. {Number(stats.total_inventory_value || 0).toLocaleString()}
+                Rs. {maskRaw(Number(stats.total_inventory_value || 0).toLocaleString())}
               </p>
               <p className="text-[11px] font-medium text-slate-400 mt-0.5">Actual capital locked in current stock</p>
             </div>
@@ -231,7 +252,7 @@ const Dashboard: React.FC = () => {
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
-                Rs. {Number(stats.total_inventory_mrp_value || stats.total_inventory_value || 0).toLocaleString()}
+                Rs. {maskRaw(Number(stats.total_inventory_mrp_value || stats.total_inventory_value || 0).toLocaleString())}
               </p>
               <p className="text-[11px] font-medium text-slate-400 mt-0.5">Total money if sold at printed MRP</p>
             </div>
@@ -245,7 +266,9 @@ const Dashboard: React.FC = () => {
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                +Rs. {Number(stats.projected_inventory_profit || (Number(stats.total_inventory_mrp_value || 0) - Number(stats.total_inventory_value || 0))).toLocaleString()}
+                {amountsVisible
+                  ? `+Rs. ${Number(stats.projected_inventory_profit || (Number(stats.total_inventory_mrp_value || 0) - Number(stats.total_inventory_value || 0))).toLocaleString()}`
+                  : 'Rs. ••••••'}
               </p>
               <p className="text-[11px] font-medium text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
                 Gross margin potential if sold at MRP
@@ -278,7 +301,7 @@ const Dashboard: React.FC = () => {
                   <tr key={sale.id} className="text-sm group transition-colors">
                     <td className="py-5 font-bold text-slate-900 dark:text-slate-100">{product?.name || 'Item'}</td>
                     <td className="py-5 text-slate-500">{sale.customerName}</td>
-                    <td className="py-5 font-black text-slate-900 dark:text-white">Rs. {sale.totalAmount.toLocaleString()}</td>
+                    <td className="py-5 font-black text-slate-900 dark:text-white">{maskAmount(`Rs. ${sale.totalAmount.toLocaleString()}`)}</td>
                     <td className="py-5 text-right">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${sale.paymentType === 'Debit' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                         {sale.paymentType}

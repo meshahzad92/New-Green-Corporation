@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Layers, Plus, Search, AlertCircle, ArrowUpRight, X, History, ClipboardList, Building2, Trash2 } from 'lucide-react';
+import { Layers, Plus, Search, AlertCircle, ArrowUpRight, X, History, ClipboardList, Building2, Trash2, Eye, EyeOff, TrendingUp } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CustomDatePicker from '../components/CustomDatePicker';
 
@@ -17,8 +17,36 @@ const StockPage: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState<string>('');
   const [partyName, setPartyName] = useState('');
-  const [purchasePrice, setPurchasePrice] = useState('0');
+  const [purchasePrice, setPurchasePrice] = useState('');
+  const [mrp, setMrp] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [showDiscount, setShowDiscount] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-calculated purchase cost when discount is applied: MRP × (1 - discount/100)
+  const calculatedPurchaseCost = React.useMemo(() => {
+    if (!showDiscount) return null;
+    const m = parseFloat(mrp);
+    const d = parseFloat(discount);
+    if (!isNaN(m) && m > 0 && !isNaN(d) && d >= 0) {
+      return Number((m * (1 - d / 100)).toFixed(2));
+    }
+    return null;
+  }, [showDiscount, mrp, discount]);
+
+  // Effective purchase price for submission
+  const effectivePurchasePrice = React.useMemo(() => {
+    if (showDiscount && calculatedPurchaseCost !== null) {
+      return calculatedPurchaseCost;
+    }
+    const manual = parseFloat(purchasePrice);
+    return !isNaN(manual) && manual >= 0 ? manual : null;
+  }, [showDiscount, calculatedPurchaseCost, purchasePrice]);
+
+  // Banking-style amount visibility toggle (hidden by default)
+  const [amountsVisible, setAmountsVisible] = useState(false);
+  const maskAmount = (value: string | number) =>
+    amountsVisible ? value : '••••••';
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -110,17 +138,23 @@ const StockPage: React.FC = () => {
     e.preventDefault();
     if (isSubmitting) return;
     const qty = parseInt(quantity);
-    const cost = parseFloat(purchasePrice);
-    if (!selectedProductId || !qty || qty <= 0) return;
+    const cost = effectivePurchasePrice;
+    if (!selectedProductId || !qty || qty <= 0 || cost === null) return;
+
+    const mrpVal = mrp ? parseFloat(mrp) : undefined;
+    const discVal = showDiscount && discount ? parseFloat(discount) : undefined;
 
     setIsSubmitting(true);
     try {
-      await addStock(selectedProductId, qty, partyName.trim() || 'Direct Supply', cost);
+      await addStock(selectedProductId, qty, partyName.trim() || 'Direct Supply', cost, mrpVal, discVal);
       setIsModalOpen(false);
       setSelectedProductId('');
       setQuantity('');
       setPartyName('');
-      setPurchasePrice('0');
+      setPurchasePrice('');
+      setMrp('');
+      setDiscount('');
+      setShowDiscount(false);
     } catch (err) {
       console.error('Failed to log stock:', err);
     } finally {
@@ -258,15 +292,29 @@ const StockPage: React.FC = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-200/60 dark:border-slate-700">
-        <div className="relative mb-8">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder={`Search ${activeTab === 'balance' ? 'products' : 'suppliers'}...`}
-            className="w-full pl-14 pr-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none outline-none font-bold text-slate-900 dark:text-white"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="relative mb-8 flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder={`Search ${activeTab === 'balance' ? 'products' : 'suppliers'}...`}
+              className="w-full pl-14 pr-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none outline-none font-bold text-slate-900 dark:text-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {/* Banking-style hide/show amounts toggle */}
+          <button
+            onClick={() => setAmountsVisible(prev => !prev)}
+            title={amountsVisible ? 'Hide amounts' : 'Show amounts'}
+            className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all border font-bold shadow-sm ${
+              amountsVisible
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/20'
+                : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:text-emerald-500'
+            }`}
+          >
+            {amountsVisible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+          </button>
         </div>
 
         {activeTab === 'balance' && (
@@ -277,7 +325,7 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">Purchase Cost</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                Rs. {stockSummary.totalCost.toLocaleString()}
+                Rs. {maskAmount(stockSummary.totalCost.toLocaleString())}
               </p>
               <p className="text-[11px] text-slate-400 font-medium mt-1">Capital invested across {stockSummary.totalItems.toLocaleString()} units</p>
             </div>
@@ -288,7 +336,7 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">Retail MRP</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                Rs. {stockSummary.totalMrp.toLocaleString()}
+                Rs. {maskAmount(stockSummary.totalMrp.toLocaleString())}
               </p>
               <p className="text-[11px] text-slate-400 font-medium mt-1">Total revenue if all sold at printed MRP</p>
             </div>
@@ -299,7 +347,7 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">+{stockSummary.marginPct}% Margin</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
-                +Rs. {stockSummary.profit.toLocaleString()}
+                {amountsVisible ? `+Rs. ${stockSummary.profit.toLocaleString()}` : 'Rs. ••••••'}
               </p>
               <p className="text-[11px] text-slate-400 font-medium mt-1">Gross profit margin if sold at MRP</p>
             </div>
@@ -344,7 +392,7 @@ const StockPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-slate-900 dark:text-white text-sm">
-                          Rs. {cost.toLocaleString()}
+                          Rs. {maskAmount(cost.toLocaleString())}
                         </p>
                         {product.companyDiscount && product.companyDiscount > 0 ? (
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
@@ -354,20 +402,20 @@ const StockPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-purple-600 dark:text-purple-400 text-sm">
-                          Rs. {mrp.toLocaleString()}
+                          Rs. {maskAmount(mrp.toLocaleString())}
                         </p>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-black text-blue-600 dark:text-blue-400 text-sm">
-                          Rs. {totalCost.toLocaleString()}
+                          Rs. {maskAmount(totalCost.toLocaleString())}
                         </p>
                         <p className="text-[10px] text-slate-400 font-semibold">Invested capital</p>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-black text-slate-900 dark:text-white text-sm">
-                          Rs. {totalMrp.toLocaleString()}
+                          Rs. {maskAmount(totalMrp.toLocaleString())}
                         </p>
-                        {diff > 0 && remaining > 0 ? (
+                        {diff > 0 && remaining > 0 && amountsVisible ? (
                           <p className="text-[10px] text-emerald-600 font-bold">
                             +{diff.toLocaleString()} profit
                           </p>
@@ -426,7 +474,7 @@ const StockPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-8 py-6 italic font-black text-slate-900 dark:text-white">
-                        Rs. {transaction.purchasePrice.toLocaleString()}
+                        Rs. {maskAmount(transaction.purchasePrice.toLocaleString())}
                       </td>
                       <td className="px-8 py-6 text-right">
                         <button
@@ -491,7 +539,24 @@ const StockPage: React.FC = () => {
                     const id = e.target.value;
                     setSelectedProductId(id);
                     const prod = uniqueProducts.find(p => p.id === id);
-                    if (prod) setPurchasePrice(prod.purchasePrice.toString());
+                    if (prod) {
+                      if (prod.mrp && prod.mrp > 0) setMrp(prod.mrp.toString());
+                      else setMrp('');
+
+                      if (prod.companyDiscount && prod.companyDiscount > 0) {
+                        setShowDiscount(true);
+                        setDiscount(prod.companyDiscount.toString());
+                        setPurchasePrice('');
+                      } else {
+                        setShowDiscount(false);
+                        setDiscount('');
+                        if (prod.purchasePrice && prod.purchasePrice > 0) {
+                          setPurchasePrice(prod.purchasePrice.toString());
+                        } else {
+                          setPurchasePrice('');
+                        }
+                      }
+                    }
                   }}
                   className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white appearance-none"
                   required
@@ -501,33 +566,138 @@ const StockPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Qty</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => handleNumChange(setQuantity, e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">Cost Price</label>
-                  <input
-                    type="number"
-                    value={purchasePrice}
-                    onChange={(e) => handleNumChange(setPurchasePrice, e.target.value)}
-                    className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-emerald-600"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Qty *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => handleNumChange(setQuantity, e.target.value)}
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                  placeholder="Quantity to add..."
+                  required
+                />
               </div>
+
+              {/* Pricing Section Header with Blue Toggle Link */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                  Pricing Details
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !showDiscount;
+                    setShowDiscount(next);
+                    if (!next) {
+                      setDiscount('');
+                      if (calculatedPurchaseCost !== null) {
+                        setPurchasePrice(calculatedPurchaseCost.toString());
+                      }
+                    } else {
+                      if (purchasePrice && (!mrp || parseFloat(mrp) === 0)) {
+                        setMrp(purchasePrice);
+                      }
+                    }
+                  }}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  {showDiscount ? '− Hide Discount' : '% Discount (Optional)'}
+                </button>
+              </div>
+
+              {showDiscount ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-500">MRP (Rs.) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={mrp}
+                        onChange={(e) => setMrp(e.target.value)}
+                        className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                        placeholder="e.g. 1000"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center justify-between">
+                        <span>Discount % *</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
+                        className="w-full px-6 py-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 focus:border-blue-500 outline-none font-bold text-blue-600 dark:text-blue-400"
+                        placeholder="e.g. 10"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auto-calculated Purchase Cost */}
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl p-5 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                          Purchase Cost (Auto-calculated)
+                        </p>
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 font-bold">
+                          Auto
+                        </span>
+                      </div>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                        {calculatedPurchaseCost !== null ? `Rs. ${calculatedPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </p>
+                      {calculatedPurchaseCost !== null && mrp && discount && (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                          Rs. {parseFloat(mrp).toLocaleString()} − {parseFloat(discount)}%
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-2xl flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-500">MRP (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={mrp}
+                      onChange={(e) => setMrp(e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                      placeholder="e.g. 1000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Purchase Price *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={purchasePrice}
+                      onChange={(e) => handleNumChange(setPurchasePrice, e.target.value)}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-emerald-600 dark:text-emerald-400"
+                      placeholder="e.g. 900"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !selectedProductId || !parseInt(quantity) || effectivePurchasePrice === null}
                 className="w-full bg-emerald-600 text-white font-black py-5 rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (

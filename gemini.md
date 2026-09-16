@@ -263,3 +263,21 @@ To counteract Supabase cloud latency and accidental double-clicks:
 - The `useEffect` that resets the modal on open now uses `initialDate ?? new Date()` to set `addSaleDate`.
 - `frontend/src/pages/Sales.tsx` passes `specificDate` (the currently-selected filter date) as `initialDate` to `<AddSaleModal>`.
 - **Result**: If you select "Yesterday" or any custom date from the date picker on the Sales page and then click "ADD SALE", the Add Sale modal pre-populates its Sale Date field with that date — no need to re-select it.
+
+---
+
+## 8. Changes Log — Session 2026-09-16
+
+### 12. **Supabase IPv4 Pooler & Local Dev Connectivity Fix**
+- Switched local development `DATABASE_URL` in `backend/.env` to the Supabase IPv4 connection pooler (`aws-0-ap-southeast-1.pooler.supabase.com:5432` with username `postgres.[project-ref]`).
+- Resolved timeout on local machines caused by direct Supabase endpoints being IPv6-only.
+- Fixed `check_database_initialized()` in `backend/main.py` so that connection errors return `None` (preventing false table initialization attempts on network failures) and fixed SQLAlchemy `engine.url` password masking bug.
+
+### 13. **Flexible Refill Pricing: Optional Discount % with Blue Toggle & Manual Purchase Price**
+- Implemented in both `frontend/src/pages/ProductDetail.tsx` (Stock Refill modal) and `frontend/src/pages/Stock.tsx` (Stock Inward modal).
+- **Default Mode (Manual Pricing)**: Displays **MRP** and **Purchase Price** as editable input fields. Users can enter purchase cost directly without needing a percentage discount.
+- **Discount Mode (Blue Toggle Link)**: Clicking the blue `% Discount (Optional)` text reveals the discount percentage bar.
+  - When discount % is typed, the purchase price is **auto-calculated** from `MRP * (1 - discount / 100)`.
+  - Displays the live green calculation card with formula breakdown (`Rs. MRP − Discount%`).
+  - Clicking `− Hide Discount` removes the discount and restores manual purchase price entry.
+- **Backend Sync**: Updated `crud_transaction.create_transaction` so that when a stock refill has no discount relief (`company_discount = null`), the product's `company_discount` is updated to `0.00` rather than retaining stale discount rates from prior shipments.

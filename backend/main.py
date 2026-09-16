@@ -14,15 +14,31 @@ import uvicorn
 sys.path.insert(0, os.path.dirname(__file__))
 
 def check_database_initialized():
-    """Check if database tables already exist"""
+    """Check if database tables already exist (5 second timeout)"""
     try:
         from app.db.session import engine
-        from sqlalchemy import inspect
-        inspector = inspect(engine)
+        from sqlalchemy import inspect, create_engine, text
+
+        # Build a temporary engine with a short connect timeout so we never hang
+        connect_args = {"connect_timeout": 5}
+        if str(engine.url).startswith("postgresql"):
+            connect_args["sslmode"] = "require"
+        temp_engine = create_engine(
+            engine.url,
+            connect_args=connect_args,
+            pool_pre_ping=False
+        )
+        inspector = inspect(temp_engine)
         tables = inspector.get_table_names()
+        temp_engine.dispose()
         return len(tables) > 0
-    except Exception:
-        return False
+    except KeyboardInterrupt:
+        # User pressed Ctrl+C during the DB check — skip the check and start server
+        print("\n⏭️  DB check interrupted — skipping (server will start normally)")
+        return True   # Treat as "already initialized" so we don't try init_db either
+    except Exception as e:
+        print(f"⚠️  DB check skipped (connection issue): {e}")
+        return None
 
 def main():
     """Main entry point for the backend application"""
@@ -38,7 +54,7 @@ def main():
     if not skip_init:
         db_exists = check_database_initialized()
         
-        if force_init or not db_exists:
+        if force_init or db_exists is False:
             print("\n📊 Initializing database...")
             try:
                 from init_db import init_db
@@ -47,8 +63,10 @@ def main():
             except Exception as e:
                 print(f"⚠️  Database initialization warning: {e}")
                 print("Continuing to start server...")
-        else:
+        elif db_exists is True:
             print("\n✅ Database already initialized (use --init-db to force)")
+        else:
+            print("\n⚠️  Could not verify database (connection issue). Skipping auto-initialization.")
     else:
         print("\n⏭️  Skipping database initialization")
     
