@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from app.db.session import get_db
-from app.schemas.transactions import Sale, SaleCreate, SaleUpdate, StockTransaction, StockTransactionCreate, BulkSaleCreate
+from app.schemas.transactions import Sale, SaleCreate, SaleUpdate, StockTransaction, StockTransactionCreate, StockTransactionUpdate, BulkSaleCreate
 from app.crud import crud_transaction
 from app.api import deps
 from app.models.models import User
@@ -27,6 +27,18 @@ def create_transaction(
     current_user: User = Depends(deps.get_current_active_user)
 ):
     return crud_transaction.create_transaction(db=db, transaction=transaction)
+
+@router.put("/transactions/{transaction_id}", response_model=StockTransaction)
+def update_transaction(
+    transaction_id: UUID,
+    transaction: StockTransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    updated = crud_transaction.update_transaction(db=db, transaction_id=transaction_id, transaction_update=transaction)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return updated
 
 # --- Sales ---
 @router.get("/sales", response_model=List[Sale])

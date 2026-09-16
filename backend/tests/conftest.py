@@ -12,12 +12,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from dotenv import load_dotenv
+
+# Load .env file from backend directory
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(backend_dir, ".env"))
+
 # Import after path is set
 from app.main import app
 from app.db.session import Base, get_db
 
-# Test database URL - using same database for now (production database)
-# In a real production environment, you'd use a separate test database
+# Test database URL
 TEST_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/agrimanage_pro")
 
 # Create test engine

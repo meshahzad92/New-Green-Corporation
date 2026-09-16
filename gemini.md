@@ -163,6 +163,7 @@ This file serves as the comprehensive living context and knowledge base for the 
 - `DELETE /api/v1/products/{id}` — Delete product.
 - `GET /api/v1/transactions` — Get stock logs (IN/OUT).
 - `POST /api/v1/transactions` — Create stock transaction (Refill / stock in).
+- `PUT /api/v1/transactions/{id}` — Update stock transaction (quantity, party name, purchase price, MRP, discount, date).
 - `DELETE /api/v1/transactions/{id}` — Soft delete stock transaction.
 - `GET /api/v1/sales` — List all sales.
 - `POST /api/v1/sales` — Create single sale (legacy).
@@ -281,3 +282,17 @@ To counteract Supabase cloud latency and accidental double-clicks:
   - Displays the live green calculation card with formula breakdown (`Rs. MRP − Discount%`).
   - Clicking `− Hide Discount` removes the discount and restores manual purchase price entry.
 - **Backend Sync**: Updated `crud_transaction.create_transaction` so that when a stock refill has no discount relief (`company_discount = null`), the product's `company_discount` is updated to `0.00` rather than retaining stale discount rates from prior shipments.
+
+### 14. **Stock Refill Entry Editing on Product Detail & Stock Ledger**
+- **Backend**:
+  - Added `StockTransactionUpdate` Pydantic schema in `backend/app/schemas/transactions.py` with optional `quantity`, `party_name`, `purchase_price`, `mrp`, `company_discount`, and `created_at`.
+  - Added `crud_transaction.update_transaction` in `backend/app/crud/crud_transaction.py`: updates the transaction and, for 'IN' transactions, automatically recalculates the product's `purchase_price`, `mrp`, and `company_discount` from the latest remaining active refill log.
+  - Added `PUT /api/v1/transactions/{transaction_id}` in `backend/app/api/v1/endpoints/transactions.py`.
+- **Frontend State**:
+  - Added `updateStockTransaction` method to `DataContext.tsx` which calls `PUT /transactions/{id}` and triggers `refreshData()`.
+- **Product Detail Page (`ProductDetail.tsx`)**:
+  - Added Edit (`Edit2`) button next to Delete on each inventory refill row in the Transaction History table.
+  - Opens dedicated "Edit Refill Entry" modal pre-populated with the existing refill's details: Supplier (Party Name), Refill Date (`CustomDatePicker`), Pricing Details (with flexible `% Discount (Optional)` toggle and live auto-calculation card), and Quantity.
+  - Includes anti-deduplication `isSubmittingEditRefill` loading indicator.
+- **Stock Ledger Page (`Stock.tsx`)**:
+  - Also added Edit (`Edit2`) button next to Delete in the Inward Logs table with dedicated "Edit Stock Entry" modal for seamless stock management across views.

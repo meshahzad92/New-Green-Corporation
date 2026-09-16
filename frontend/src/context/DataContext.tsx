@@ -23,6 +23,7 @@ interface DataContextType {
   updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date }>) => Promise<boolean>;
   deleteSale: (id: string) => Promise<void>;
   deleteInvoice: (invoiceId: string) => Promise<void>;
+  updateStockTransaction: (id: string, updates: { quantity?: number; partyName?: string; purchasePrice?: number; mrp?: number | null; companyDiscount?: number | null; date?: Date }) => Promise<boolean>;
   deleteStockTransaction: (id: string) => Promise<void>;
 }
 
@@ -414,6 +415,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateStockTransaction = async (
+    id: string,
+    updates: {
+      quantity?: number;
+      partyName?: string;
+      purchasePrice?: number;
+      mrp?: number | null;
+      companyDiscount?: number | null;
+      date?: Date;
+    }
+  ): Promise<boolean> => {
+    try {
+      const payload: any = {};
+      if (updates.quantity !== undefined) payload.quantity = updates.quantity;
+      if (updates.partyName !== undefined) payload.party_name = updates.partyName;
+      if (updates.purchasePrice !== undefined) payload.purchase_price = updates.purchasePrice;
+      if (updates.mrp !== undefined) payload.mrp = updates.mrp;
+      if (updates.companyDiscount !== undefined) payload.company_discount = updates.companyDiscount;
+      if (updates.date !== undefined) payload.created_at = updates.date.toISOString();
+
+      await api.put(`/transactions/${id}`, payload);
+      await refreshData();
+      return true;
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      return false;
+    }
+  };
+
   const deleteStockTransaction = async (id: string) => {
     try {
       await api.delete(`/transactions/${id}`);
@@ -428,7 +458,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       companies, products, stocks, stockTransactions, sales, loading, refreshData,
       addCompany, updateCompany, deleteCompany,
       addProduct, updateProduct, deleteProduct,
-      addStock, deleteStockTransaction,
+      addStock, updateStockTransaction, deleteStockTransaction,
       addSale, addBulkSale, updateSale, deleteSale, deleteInvoice
     }}>
       {children}

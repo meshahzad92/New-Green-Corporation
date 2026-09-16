@@ -123,3 +123,41 @@ class TestStockEndpoints:
         
         assert response.status_code == 200
         # Stock calculations are done via aggregation
+
+    def test_update_transaction(self, client, auth_headers, test_product_id):
+        """Test updating a stock transaction"""
+        # Create stock transaction
+        create_res = client.post(
+            "/api/v1/transactions/",
+            json={
+                "product_id": test_product_id,
+                "quantity": 25,
+                "party_name": "Initial Supplier",
+                "purchase_price": 800.00,
+                "mrp": 1000.00,
+                "company_discount": 20.0,
+                "type": "IN"
+            },
+            headers=auth_headers
+        )
+        assert create_res.status_code == 201
+        trans_id = create_res.json()["id"]
+
+        # Update transaction
+        update_res = client.put(
+            f"/api/v1/transactions/{trans_id}",
+            json={
+                "quantity": 35,
+                "party_name": "Updated Supplier",
+                "purchase_price": 750.00,
+                "mrp": 1000.00,
+                "company_discount": 25.0
+            },
+            headers=auth_headers
+        )
+        assert update_res.status_code == 200
+        data = update_res.json()
+        assert data["quantity"] == 35
+        assert data["party_name"] == "Updated Supplier"
+        assert float(data["purchase_price"]) == 750.00
+        assert float(data["company_discount"]) == 25.0

@@ -65,6 +65,46 @@ def create_transaction(db: Session, transaction: transactions.StockTransactionCr
     db.refresh(db_transaction)
     return db_transaction
 
+def update_transaction(db: Session, transaction_id: UUID, transaction_update: transactions.StockTransactionUpdate):
+    """Update an existing stock transaction and recalculate product pricing if IN transaction"""
+    db_transaction = db.query(StockTransaction).filter(
+        StockTransaction.id == transaction_id,
+        StockTransaction.is_deleted == False
+    ).first()
+    
+    if not db_transaction:
+        return None
+        
+    update_data = transaction_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_transaction, field, value)
+        
+    # Flush to ensure latest query reflects changes
+    db.flush()
+
+    # If this was an 'IN' stock transaction, update/recalculate product pricing
+    if db_transaction.type == 'IN' and db_transaction.product_id:
+        db_product = db.query(Product).filter(Product.id == db_transaction.product_id).first()
+        if db_product:
+            latest_in = db.query(StockTransaction).filter(
+                StockTransaction.product_id == db_product.id,
+                StockTransaction.type == 'IN',
+                StockTransaction.is_deleted == False
+            ).order_by(StockTransaction.created_at.desc()).first()
+            
+            if latest_in:
+                db_product.purchase_price = latest_in.purchase_price or Decimal('0.00')
+                db_product.mrp = latest_in.mrp
+                db_product.company_discount = latest_in.company_discount if latest_in.company_discount is not None else Decimal('0.00')
+            else:
+                db_product.purchase_price = Decimal('0.00')
+                db_product.mrp = None
+                db_product.company_discount = Decimal('0.00')
+                
+    db.commit()
+    db.refresh(db_transaction)
+    return db_transaction
+
 def delete_transaction(db: Session, transaction_id: UUID):
     """Soft delete: Mark transaction as deleted instead of removing from database and update product pricing"""
     db_transaction = db.query(StockTransaction).filter(

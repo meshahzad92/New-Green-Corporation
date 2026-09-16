@@ -17,6 +17,14 @@ class StockTransactionBase(BaseModel):
 class StockTransactionCreate(StockTransactionBase):
     pass
 
+class StockTransactionUpdate(BaseModel):
+    quantity: Optional[int] = Field(default=None, gt=0)
+    party_name: Optional[str] = None
+    purchase_price: Optional[Decimal] = Field(default=None, ge=0)
+    mrp: Optional[Decimal] = Field(default=None, ge=0)
+    company_discount: Optional[Decimal] = Field(default=None, ge=0, le=100)
+    created_at: Optional[datetime] = None
+
 class StockTransaction(StockTransactionBase):
     id: UUID
     created_at: datetime

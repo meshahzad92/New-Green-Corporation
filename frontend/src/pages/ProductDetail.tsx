@@ -2,14 +2,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { ArrowLeft, Package, ShoppingCart, Layers, Plus, TrendingUp, User, Building2, Calendar, History, Phone, CreditCard, Wallet, Banknote, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Package, ShoppingCart, Layers, Plus, TrendingUp, User, Building2, Calendar, History, Phone, CreditCard, Wallet, Banknote, X, Trash2, Edit2 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AddSaleModal from '../components/AddSaleModal';
+import CustomDatePicker from '../components/CustomDatePicker';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
-  const { products, stocks, sales, companies, addStock, addSale, stockTransactions, deleteSale, deleteStockTransaction } = useData();
+  const { products, stocks, sales, companies, addStock, addSale, stockTransactions, deleteSale, deleteStockTransaction, updateStockTransaction } = useData();
 
   const product = products.find(p => p.id === productId);
   const stock = stocks.find(s => s.productId === productId);
@@ -166,6 +167,78 @@ const ProductDetail: React.FC = () => {
     else setter(val);
   };
 
+  // Edit Refill Modal state
+  const [editRefillModal, setEditRefillModal] = useState<{
+    isOpen: boolean;
+    transactionId: string;
+    quantity: string;
+    partyName: string;
+    mrp: string;
+    discount: string;
+    purchasePrice: string;
+    showDiscount: boolean;
+    date: Date;
+  }>({
+    isOpen: false,
+    transactionId: '',
+    quantity: '0',
+    partyName: '',
+    mrp: '',
+    discount: '',
+    purchasePrice: '',
+    showDiscount: false,
+    date: new Date(),
+  });
+  const [isSubmittingEditRefill, setIsSubmittingEditRefill] = useState(false);
+
+  // Auto-calculated purchase cost for edit refill modal: MRP × (1 - discount/100)
+  const calculatedEditPurchaseCost = React.useMemo(() => {
+    if (!editRefillModal.showDiscount) return null;
+    const mrp = parseFloat(editRefillModal.mrp);
+    const disc = parseFloat(editRefillModal.discount);
+    if (!isNaN(mrp) && mrp > 0 && !isNaN(disc) && disc >= 0) {
+      return Number((mrp * (1 - disc / 100)).toFixed(2));
+    }
+    return null;
+  }, [editRefillModal.showDiscount, editRefillModal.mrp, editRefillModal.discount]);
+
+  // Effective purchase price for edit refill submission
+  const effectiveEditPurchasePrice = React.useMemo(() => {
+    if (editRefillModal.showDiscount && calculatedEditPurchaseCost !== null) {
+      return calculatedEditPurchaseCost;
+    }
+    const manual = parseFloat(editRefillModal.purchasePrice);
+    return !isNaN(manual) && manual >= 0 ? manual : null;
+  }, [editRefillModal.showDiscount, calculatedEditPurchaseCost, editRefillModal.purchasePrice]);
+
+  const handleSaveEditRefill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmittingEditRefill) return;
+    const q = parseInt(editRefillModal.quantity);
+    const mrp = editRefillModal.mrp ? parseFloat(editRefillModal.mrp) : null;
+    const disc = editRefillModal.showDiscount && editRefillModal.discount ? parseFloat(editRefillModal.discount) : 0;
+    const purchaseCost = effectiveEditPurchasePrice;
+
+    if (q > 0 && editRefillModal.partyName.trim() && purchaseCost !== null) {
+      setIsSubmittingEditRefill(true);
+      try {
+        await updateStockTransaction(editRefillModal.transactionId, {
+          quantity: q,
+          partyName: editRefillModal.partyName.trim(),
+          purchasePrice: purchaseCost,
+          mrp: mrp,
+          companyDiscount: editRefillModal.showDiscount ? disc : 0,
+          date: editRefillModal.date
+        });
+        setEditRefillModal(prev => ({ ...prev, isOpen: false }));
+      } catch (err) {
+        console.error('Failed to update stock refill:', err);
+      } finally {
+        setIsSubmittingEditRefill(false);
+      }
+    }
+  };
+
   const inventoryValuation = (stock?.remaining || 0) * latestCost;
 
   return (
@@ -303,20 +376,46 @@ const ProductDetail: React.FC = () => {
                       Rs. {(isRefill ? (entry as any).purchasePrice : (entry as any).totalAmount).toLocaleString()}
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button
-                        onClick={() => {
-                          setConfirmDialog({
-                            isOpen: true,
-                            entryId: entry.id,
-                            isRefill: isRefill,
-                            partyName: isRefill ? (entry as any).partyName : '',
-                            customerName: !isRefill ? (entry as any).customerName : ''
-                          });
-                        }}
-                        className="p-2 text-slate-300 hover:text-rose-500 transition-colors bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {isRefill && (
+                          <button
+                            onClick={() => {
+                              const refill = entry as any;
+                              const hasDiscount = refill.companyDiscount !== undefined && refill.companyDiscount !== null && refill.companyDiscount > 0;
+                              setEditRefillModal({
+                                isOpen: true,
+                                transactionId: refill.id,
+                                quantity: refill.quantity.toString(),
+                                partyName: refill.partyName || '',
+                                mrp: refill.mrp ? refill.mrp.toString() : '',
+                                discount: hasDiscount ? refill.companyDiscount.toString() : '',
+                                purchasePrice: (!hasDiscount && refill.purchasePrice > 0) ? refill.purchasePrice.toString() : '',
+                                showDiscount: hasDiscount,
+                                date: new Date(refill.date)
+                              });
+                            }}
+                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl"
+                            title="Edit Refill Entry"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setConfirmDialog({
+                              isOpen: true,
+                              entryId: entry.id,
+                              isRefill: isRefill,
+                              partyName: isRefill ? (entry as any).partyName : '',
+                              customerName: !isRefill ? (entry as any).customerName : ''
+                            });
+                          }}
+                          className="p-2 text-slate-300 hover:text-rose-500 transition-colors bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl"
+                          title="Delete Entry"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -492,6 +591,223 @@ const ProductDetail: React.FC = () => {
         onClose={() => setIsSellModalOpen(false)}
         initialProductId={product.id}
       />
+
+      {/* Edit Stock Refill Modal */}
+      {editRefillModal.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/20 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="bg-emerald-600 p-8 text-white flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-2xl font-black flex items-center gap-3">
+                  <Edit2 className="w-6 h-6" /> Edit Refill Entry
+                </h2>
+                <p className="text-xs text-emerald-100 font-bold mt-1 uppercase tracking-wider">
+                  {product.name} • {product.unit}
+                </p>
+              </div>
+              <button
+                onClick={() => setEditRefillModal(prev => ({ ...prev, isOpen: false }))}
+                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditRefill} className="p-8 space-y-5 overflow-y-auto flex-1">
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  Source / Supplier (Party Name) *
+                </label>
+                <input
+                  type="text"
+                  value={editRefillModal.partyName}
+                  onChange={(e) => setEditRefillModal(prev => ({ ...prev, partyName: e.target.value }))}
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                  placeholder="e.g. Bayer CropScience"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  Refill Date
+                </label>
+                <CustomDatePicker
+                  selected={editRefillModal.date}
+                  onChange={(date) => setEditRefillModal(prev => ({ ...prev, date: date || new Date() }))}
+                  placeholderText="Select refill date..."
+                  maxDate={new Date()}
+                />
+              </div>
+
+              {/* Pricing Section Header with Blue Toggle */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  Pricing Details
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !editRefillModal.showDiscount;
+                    setEditRefillModal(prev => {
+                      if (!next) {
+                        return {
+                          ...prev,
+                          showDiscount: false,
+                          discount: '',
+                          purchasePrice: calculatedEditPurchaseCost !== null ? calculatedEditPurchaseCost.toString() : prev.purchasePrice
+                        };
+                      } else {
+                        return {
+                          ...prev,
+                          showDiscount: true,
+                          mrp: (!prev.mrp || parseFloat(prev.mrp) === 0) && prev.purchasePrice ? prev.purchasePrice : prev.mrp
+                        };
+                      }
+                    });
+                  }}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  {editRefillModal.showDiscount ? '− Hide Discount' : '% Discount (Optional)'}
+                </button>
+              </div>
+
+              {editRefillModal.showDiscount ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">MRP (Rs.) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={editRefillModal.mrp}
+                        onChange={(e) => setEditRefillModal(prev => ({ ...prev, mrp: e.target.value }))}
+                        className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                        placeholder="e.g. 1000"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                        Discount % *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        value={editRefillModal.discount}
+                        onChange={(e) => setEditRefillModal(prev => ({ ...prev, discount: e.target.value }))}
+                        className="w-full px-6 py-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 focus:border-blue-500 outline-none font-bold text-blue-600 dark:text-blue-400"
+                        placeholder="e.g. 10"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auto-calculated Purchase Cost */}
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl p-5 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                          Purchase Cost (Auto-calculated)
+                        </p>
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 font-bold">
+                          Auto
+                        </span>
+                      </div>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                        {calculatedEditPurchaseCost !== null ? `Rs. ${calculatedEditPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </p>
+                      {calculatedEditPurchaseCost !== null && editRefillModal.mrp && editRefillModal.discount && (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                          Rs. {parseFloat(editRefillModal.mrp).toLocaleString()} − {parseFloat(editRefillModal.discount)}%
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-800 rounded-2xl flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">MRP (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={editRefillModal.mrp}
+                      onChange={(e) => setEditRefillModal(prev => ({ ...prev, mrp: e.target.value }))}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                      placeholder="e.g. 1000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Purchase Price *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={editRefillModal.purchasePrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cleaned = val.length > 1 && val.startsWith('0') ? val.slice(1) : val;
+                        setEditRefillModal(prev => ({ ...prev, purchasePrice: cleaned }));
+                      }}
+                      className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-emerald-600 dark:text-emerald-400"
+                      placeholder="e.g. 900"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Refill Quantity *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editRefillModal.quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const cleaned = val.length > 1 && val.startsWith('0') ? val.slice(1) : val;
+                    setEditRefillModal(prev => ({ ...prev, quantity: cleaned }));
+                  }}
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-emerald-500 outline-none font-bold text-slate-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditRefillModal(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={effectiveEditPurchasePrice === null || isSubmittingEditRefill}
+                  className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmittingEditRefill ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
