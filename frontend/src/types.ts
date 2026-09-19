@@ -44,6 +44,9 @@ export interface Sale {
   purchasePrice: number; // Historical cost at time of sale for profit tracking
   customerName: string;
   customerPhone?: string; // Optional phone number for credit follow-ups
+  dealerId?: string;
+  dealerName?: string;
+  farmerName?: string;
   totalAmount: number;
   paidAmount?: number;
   invoiceId?: string;

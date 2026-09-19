@@ -13,19 +13,25 @@ router = APIRouter()
 @router.get("/", response_model=List[Expense])
 def read_expenses(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
     expense_date: Optional[date] = Query(None, description="Filter by specific date"),
+    start_date: Optional[date] = Query(None, description="Start date for range filter"),
+    end_date: Optional[date] = Query(None, description="End date for range filter"),
+    search: Optional[str] = Query(None, description="Search keyword in name or details"),
     db: Session = Depends(get_db)
 ):
     """
-    Get all expenses, optionally filtered by date
-    If no date is provided, returns all expenses
+    Get all expenses, optionally filtered by date, date range, or search keyword.
+    If no date is provided, returns all expenses.
     """
     expenses = crud_expense.get_expenses(
         db, 
         skip=skip, 
         limit=limit,
-        expense_date=expense_date
+        expense_date=expense_date,
+        start_date=start_date,
+        end_date=end_date,
+        search=search
     )
     return expenses
 

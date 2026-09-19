@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Wallet, Search, User, TrendingDown, TrendingUp, Edit } from 'lucide-react';
+import { formatDate } from '../utils/formatters';
 
 interface CustomerPayment {
     customerName: string;
@@ -267,7 +268,7 @@ const PaymentsPage: React.FC = () => {
                                         {customer.salesCount}
                                     </td>
                                     <td className="px-8 py-6 text-right text-slate-600 dark:text-slate-400 font-medium">
-                                        {new Date(customer.lastTransaction).toLocaleDateString()}
+                                        {formatDate(customer.lastTransaction)}
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         <button

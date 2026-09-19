@@ -7,9 +7,10 @@ interface ConfirmDialogProps {
     message: string;
     confirmText?: string;
     cancelText?: string;
-    onConfirm: () => void;
+    onConfirm?: () => void;
     onCancel: () => void;
     isDangerous?: boolean;
+    alertOnly?: boolean;
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -21,6 +22,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     onConfirm,
     onCancel,
     isDangerous = true,
+    alertOnly = false,
 }) => {
     if (!isOpen) return null;
 
@@ -30,14 +32,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {/* Header */}
                 <div className={`${isDangerous ? 'bg-red-600' : 'bg-emerald-600'} p-6 text-white flex items-center justify-between`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
                             <AlertTriangle className="w-5 h-5" />
                         </div>
-                        <h2 className="text-xl font-black">{title}</h2>
+                        <h2 className="text-xl font-black leading-snug">{title}</h2>
                     </div>
                     <button
                         onClick={onCancel}
-                        className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
+                        className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors shrink-0"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -45,31 +47,40 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
                 {/* Content */}
                 <div className="p-8 space-y-6">
-                    <p className="text-slate-600 dark:text-slate-300 text-base leading-relaxed">
+                    <p className="text-slate-600 dark:text-slate-300 text-sm md:text-base leading-relaxed font-medium">
                         {message}
                     </p>
 
                     {/* Actions */}
-                    <div className="flex gap-3">
+                    {alertOnly ? (
                         <button
                             onClick={onCancel}
-                            className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
+                            className="w-full px-6 py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg"
                         >
-                            {cancelText}
+                            {confirmText === 'Yes, Delete' ? 'Understood' : confirmText}
                         </button>
-                        <button
-                            onClick={() => {
-                                onConfirm();
-                                onCancel();
-                            }}
-                            className={`flex-1 px-6 py-4 rounded-2xl font-bold transition-all active:scale-95 shadow-lg ${isDangerous
-                                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/30'
-                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
-                                }`}
-                        >
-                            {confirmText}
-                        </button>
-                    </div>
+                    ) : (
+                        <div className="flex gap-3">
+                            <button
+                                onClick={onCancel}
+                                className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
+                            >
+                                {cancelText}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (onConfirm) onConfirm();
+                                    onCancel();
+                                }}
+                                className={`flex-1 px-6 py-4 rounded-2xl font-bold transition-all active:scale-95 shadow-lg ${isDangerous
+                                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/30'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                                    }`}
+                            >
+                                {confirmText}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

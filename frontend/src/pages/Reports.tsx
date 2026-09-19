@@ -4,10 +4,8 @@ import { useData } from '../context/DataContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell, PieChart, Pie, LineChart, Line } from 'recharts';
 import { calculateProfit } from '../utils/calculations';
 import { Calendar, TrendingUp, Award, DollarSign, CreditCard, Wallet, ShoppingCart, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 import CustomDatePicker from '../components/CustomDatePicker';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 type PeriodType = '1month' | '3months' | '6months' | '1year' | 'custom';
 
@@ -57,6 +55,7 @@ const Reports: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [periodSummary, setPeriodSummary] = useState<PeriodSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const cacheRef = React.useRef<{ [key: string]: PeriodSummary }>({});
 
   // Calculate date ranges based on selected period
   const getDateRange = () => {
@@ -83,7 +82,6 @@ const Reports: React.FC = () => {
             end: customEndDate.toISOString().split('T')[0]
           };
         }
-        // Default to last month if custom dates not set
         startDate.setMonth(today.getMonth() - 1);
         break;
     }
@@ -94,17 +92,27 @@ const Reports: React.FC = () => {
     };
   };
 
-  // Fetch period summary from backend
+  // Fetch period summary from backend with instant cache retrieval
   const fetchPeriodSummary = async () => {
+    const dateRange = getDateRange();
+    const cacheKey = `${dateRange.start}_${dateRange.end}`;
+
+    // Return instant cached data if available
+    if (cacheRef.current[cacheKey]) {
+      setPeriodSummary(cacheRef.current[cacheKey]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const dateRange = getDateRange();
-      const response = await axios.get(`${API_URL}/reports/period-summary`, {
+      const response = await api.get('/reports/period-summary', {
         params: {
           start_date: dateRange.start,
           end_date: dateRange.end
         }
       });
+      cacheRef.current[cacheKey] = response.data;
       setPeriodSummary(response.data);
     } catch (error) {
       console.error('Failed to fetch period summary:', error);
@@ -118,18 +126,6 @@ const Reports: React.FC = () => {
     fetchPeriodSummary();
   }, [selectedPeriod, customStartDate, customEndDate]);
 
-  // Aggregate daily sales for current view (local calculation for comparison)
-  const dailyData = useMemo(() => {
-    const map = new Map();
-    sales.forEach(s => {
-      const date = new Date(s.date).toLocaleDateString();
-      const current = map.get(date) || { date, revenue: 0, profit: 0 };
-      current.revenue += s.totalAmount;
-      current.profit += calculateProfit(s);
-      map.set(date, current);
-    });
-    return Array.from(map.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-15);
-  }, [sales]);
 
   // Top products by sales
   const productPerformance = useMemo(() => {
@@ -282,16 +278,6 @@ const Reports: React.FC = () => {
               <p className="text-sm opacity-80 mt-2">{periodSummary.sales_summary.profit_margin}% margin</p>
             </div>
 
-            {/* Net Profit */}
-            <div className={`bg-gradient-to-br ${periodSummary.overall.net_profit >= 0 ? 'from-emerald-500 to-emerald-600' : 'from-rose-500 to-rose-600'} text-white p-6 rounded-3xl shadow-lg`}>
-              <div className="flex items-center gap-2 mb-2">
-                {periodSummary.overall.net_profit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                <h3 className="text-sm font-semibold opacity-90">Net Profit</h3>
-              </div>
-              <p className="text-3xl font-black">Rs. {periodSummary.overall.net_profit.toLocaleString()}</p>
-              <p className="text-sm opacity-80 mt-2">After expenses</p>
-            </div>
-
             {/* Total Expenses */}
             <div className="bg-gradient-to-br from-rose-500 to-rose-600 text-white p-6 rounded-3xl shadow-lg">
               <div className="flex items-center gap-2 mb-2">
@@ -300,6 +286,16 @@ const Reports: React.FC = () => {
               </div>
               <p className="text-3xl font-black">Rs. {periodSummary.expense_summary.total_expenses.toLocaleString()}</p>
               <p className="text-sm opacity-80 mt-2">{periodSummary.expense_summary.expense_count} transactions</p>
+            </div>
+
+            {/* Net Profit */}
+            <div className={`bg-gradient-to-br ${periodSummary.overall.net_profit >= 0 ? 'from-emerald-500 to-emerald-600' : 'from-rose-500 to-rose-600'} text-white p-6 rounded-3xl shadow-lg`}>
+              <div className="flex items-center gap-2 mb-2">
+                {periodSummary.overall.net_profit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                <h3 className="text-sm font-semibold opacity-90">Net Profit</h3>
+              </div>
+              <p className="text-3xl font-black">Rs. {periodSummary.overall.net_profit.toLocaleString()}</p>
+              <p className="text-sm opacity-80 mt-2">After expenses</p>
             </div>
           </div>
 

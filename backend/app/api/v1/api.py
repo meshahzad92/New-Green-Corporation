@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import products, transactions, reports, login, companies, expenses, backup, notes
+from app.api.v1.endpoints import products, transactions, reports, login, companies, expenses, backup, notes, khata, company_khata
 
 api_router = APIRouter()
 
@@ -14,6 +14,10 @@ api_router.include_router(companies.router, prefix="/companies", tags=["companie
 api_router.include_router(products.router, prefix="/products", tags=["products"])
 api_router.include_router(transactions.router, tags=["transactions"])
 api_router.include_router(expenses.router, prefix="/expenses", tags=["expenses"])
+api_router.include_router(khata.router, prefix="/khata", tags=["khata"])
+api_router.include_router(company_khata.router, prefix="/company-khata", tags=["company-khata"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(notes.router, prefix="/notes", tags=["notes"])
 api_router.include_router(backup.router, prefix="/backup", tags=["backup"])
+
+

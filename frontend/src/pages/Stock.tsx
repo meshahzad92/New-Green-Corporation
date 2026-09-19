@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { Layers, Plus, Search, AlertCircle, ArrowUpRight, X, History, ClipboardList, Building2, Trash2, Eye, EyeOff, TrendingUp, Edit2 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CustomDatePicker from '../components/CustomDatePicker';
+import { formatDate } from '../utils/formatters';
 
 const StockPage: React.FC = () => {
   const { products, stocks, stockTransactions, companies, addStock, deleteStockTransaction, updateStockTransaction } = useData();
@@ -46,7 +47,7 @@ const StockPage: React.FC = () => {
   // Banking-style amount visibility toggle (hidden by default)
   const [amountsVisible, setAmountsVisible] = useState(false);
   const maskAmount = (value: string | number) =>
-    amountsVisible ? value : '••••••';
+    amountsVisible ? value : '******';
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -423,7 +424,7 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">+{stockSummary.marginPct}% Margin</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
-                {amountsVisible ? `+Rs. ${stockSummary.profit.toLocaleString()}` : 'Rs. ••••••'}
+                {amountsVisible ? `+Rs. ${stockSummary.profit.toLocaleString()}` : 'Rs. ******'}
               </p>
               <p className="text-[11px] text-slate-400 font-medium mt-1">Gross profit margin if sold at MRP</p>
             </div>
@@ -470,7 +471,7 @@ const StockPage: React.FC = () => {
                         <p className="font-bold text-slate-900 dark:text-white text-sm">
                           Rs. {maskAmount(cost.toLocaleString())}
                         </p>
-                        {product.companyDiscount && product.companyDiscount > 0 ? (
+                        {amountsVisible && product.companyDiscount && product.companyDiscount > 0 ? (
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
                             {product.companyDiscount}% off
                           </span>
@@ -533,7 +534,7 @@ const StockPage: React.FC = () => {
                   return (
                     <tr key={transaction.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
                       <td className="px-8 py-6 text-slate-500 dark:text-slate-400 font-bold text-sm">
-                        {new Date(transaction.date).toLocaleDateString()}
+                        {formatDate(transaction.date)}
                       </td>
                       <td className="px-8 py-6">
                         <span className="font-black text-slate-900 dark:text-white flex items-center gap-2">

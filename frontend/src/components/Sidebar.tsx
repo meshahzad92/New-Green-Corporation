@@ -11,7 +11,6 @@ import {
   ShoppingCart,
   Wallet,
   Receipt,
-  BarChart3,
   LogOut,
   Sun,
   Moon,
@@ -19,8 +18,9 @@ import {
   Menu,
   X,
   MoreVertical,
-  Database,
-  StickyNote
+  BookOpen,
+  Landmark,
+  MoreHorizontal
 } from 'lucide-react';
 
 const navItems = [
@@ -30,9 +30,9 @@ const navItems = [
   { path: '/stock', label: 'Stock', icon: Layers },
   { path: '/sales', label: 'Sales', icon: ShoppingCart },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
-  { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/notes', label: 'Notes', icon: StickyNote },
-  { path: '/backup', label: 'Backup', icon: Database },
+  { path: '/khata', label: 'Dealer Khata', icon: BookOpen },
+  { path: '/company-khata', label: 'Company Khata', icon: Landmark },
+  { path: '/more', label: 'More', icon: MoreHorizontal },
 ];
 
 const Sidebar: React.FC = () => {

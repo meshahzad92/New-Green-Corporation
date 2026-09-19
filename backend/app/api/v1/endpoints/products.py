@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.schemas.product import Product, ProductCreate, ProductUpdate
 from app.crud import crud_product
 from app.api import deps
-from app.models.models import User, Product as DBProduct
+from app.models.models import User, Product as DBProduct, StockTransaction, Sale
 
 router = APIRouter()
 
@@ -89,6 +89,24 @@ def delete_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
+    # Check if stock transactions exist
+    has_transactions = db.query(StockTransaction.id).filter(
+        StockTransaction.product_id == product_id,
+        StockTransaction.is_deleted == False
+    ).first()
+    
+    # Check if sales exist
+    has_sales = db.query(Sale.id).filter(
+        Sale.product_id == product_id,
+        Sale.is_deleted == False
+    ).first()
+
+    if has_transactions or has_sales:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete product because it has stock transactions or sales records linked to it."
+        )
+
     db_product = crud_product.delete_product(db, product_id=product_id)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")

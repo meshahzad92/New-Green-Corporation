@@ -14,9 +14,9 @@ const Dashboard: React.FC = () => {
   // Banking-style amount visibility toggle (hidden by default)
   const [amountsVisible, setAmountsVisible] = useState(false);
   const maskAmount = (value: string | number) =>
-    amountsVisible ? value : 'Rs. ••••••';
+    amountsVisible ? value : 'Rs. ******';
   const maskRaw = (value: string) =>
-    amountsVisible ? value : '••••••';
+    amountsVisible ? value : '******';
 
   useEffect(() => {
     const fetchReport = async () => {

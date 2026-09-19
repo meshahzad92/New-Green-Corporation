@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Numeric, ForeignKey, DateTime, Text, CheckConstraint, Boolean
+from sqlalchemy import Column, String, Integer, Numeric, ForeignKey, DateTime, Text, CheckConstraint, Boolean, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -13,6 +13,7 @@ class Company(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     products = relationship("Product", back_populates="company")
+    khata_entries = relationship("CompanyKhataEntry", back_populates="company", cascade="all, delete-orphan", order_by="CompanyKhataEntry.entry_date.asc()")
 
 class Product(Base):
     __tablename__ = "products"
@@ -55,7 +56,10 @@ class Sale(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"))
     customer_name = Column(Text, nullable=False)
-    customer_phone = Column(String(11))
+    customer_phone = Column(String(20), nullable=True)
+    dealer_id = Column(UUID(as_uuid=True), ForeignKey("khata_accounts.id", ondelete="SET NULL"), nullable=True)
+    dealer_name = Column(Text, nullable=True)
+    farmer_name = Column(Text, nullable=True)
     quantity = Column(Integer, nullable=False)
     selling_price = Column(Numeric(12, 2), nullable=False)
     purchase_price = Column(Numeric(12, 2), nullable=False)
@@ -72,6 +76,7 @@ class Sale(Base):
 
     product = relationship("Product", back_populates="sales")
     stock_transaction = relationship("StockTransaction", back_populates="sale", uselist=False, cascade="all, delete")
+    khata_account = relationship("KhataAccount", back_populates="sales")
 
 class Expense(Base):
     __tablename__ = "expenses"
@@ -108,3 +113,80 @@ class Note(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+class KhataAccount(Base):
+    __tablename__ = "khata_accounts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    phone = Column(String(20), nullable=True)
+    role = Column(Text, default="Dealer", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    entries = relationship("KhataEntry", back_populates="account", cascade="all, delete-orphan", order_by="KhataEntry.entry_date.asc()")
+    sales = relationship("Sale", back_populates="khata_account")
+
+class KhataEntry(Base):
+    __tablename__ = "khata_entries"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("khata_accounts.id", ondelete="CASCADE"), nullable=False)
+    entry_date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    entry_type = Column(Text, CheckConstraint("entry_type IN ('CREDIT', 'RECOVERY')"), nullable=False)
+    farmer_name = Column(Text, nullable=True)
+    credit_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
+    recovery_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
+    products_detail = Column(JSON, nullable=True)
+    invoice_id = Column(String(50), nullable=True, index=True)
+    sale_id = Column(UUID(as_uuid=True), ForeignKey("sales.id", ondelete="SET NULL"), nullable=True)
+    remarks = Column(Text, nullable=True)
+    payment_method = Column(Text, default="CASH", nullable=True)
+    bank_name = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    account = relationship("KhataAccount", back_populates="entries")
+ 
+class CompanyKhataAccount(Base):
+    __tablename__ = "company_khata_accounts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    phone = Column(String(50), nullable=True)
+    catalog_company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    catalog_company = relationship("Company")
+    entries = relationship("CompanyKhataEntry", back_populates="account", cascade="all, delete-orphan")
+
+class CompanyKhataEntry(Base):
+    __tablename__ = "company_khata_entries"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("company_khata_accounts.id", ondelete="CASCADE"), nullable=True)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
+    entry_date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    entry_type = Column(Text, CheckConstraint("entry_type IN ('PAYMENT', 'PURCHASE')"), nullable=False)
+    
+    # For Payments made to company (Advance / Bill payment)
+    amount_paid = Column(Numeric(12, 2), default=0.0, nullable=False)
+    payment_method = Column(Text, default="ONLINE", nullable=True)  # 'ONLINE', 'CASH'
+    bank_name = Column(Text, nullable=True)
+    transaction_id = Column(Text, nullable=True)
+    
+    # For Stock Purchases / Inward delivery from company
+    total_purchase_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
+    products_detail = Column(JSON, nullable=True)  # [{ product_id, product_name, quantity, total_price, unit_purchase_price }]
+    stock_transaction_ids = Column(JSON, nullable=True)  # list of UUID strings
+    
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    account = relationship("CompanyKhataAccount", back_populates="entries")
+    company = relationship("Company", back_populates="khata_entries")
+
+

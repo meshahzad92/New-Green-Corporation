@@ -92,9 +92,7 @@ def delete_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
-    db_sale = crud_transaction.delete_sale(db, sale_id=sale_id)
-    if not db_sale:
-        raise HTTPException(status_code=404, detail="Sale not found")
+    crud_transaction.delete_sale(db, sale_id=sale_id)
     return None
 
 @router.delete("/sales/invoice/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -103,7 +101,6 @@ def delete_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
-    success = crud_transaction.delete_invoice(db, invoice_id=invoice_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Invoice not found")
+    crud_transaction.delete_invoice(db, invoice_id=invoice_id)
     return None
+

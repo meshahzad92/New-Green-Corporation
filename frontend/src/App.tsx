@@ -15,9 +15,14 @@ import ProductDetail from './pages/ProductDetail';
 import Stock from './pages/Stock';
 import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
+import Khata from './pages/Khata';
+import KhataDetail from './pages/KhataDetail';
 import Reports from './pages/Reports';
 import Notes from './pages/Notes';
 import Backup from './pages/Backup';
+import MoreHub from './pages/MoreHub';
+import CompanyKhata from './pages/CompanyKhata';
+import CompanyKhataDetail from './pages/CompanyKhataDetail';
 
 const App: React.FC = () => {
   return (
@@ -35,6 +40,11 @@ const App: React.FC = () => {
                 <Route path="/stock" element={<Stock />} />
                 <Route path="/sales" element={<Sales />} />
                 <Route path="/expenses" element={<Expenses />} />
+                <Route path="/khata" element={<Khata />} />
+                <Route path="/khata/:dealerId" element={<KhataDetail />} />
+                <Route path="/company-khata" element={<CompanyKhata />} />
+                <Route path="/company-khata/:companyId" element={<CompanyKhataDetail />} />
+                <Route path="/more" element={<MoreHub />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/backup" element={<Backup />} />

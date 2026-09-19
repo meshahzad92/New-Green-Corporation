@@ -35,6 +35,77 @@ def startup_event():
             conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS company_discount NUMERIC(5, 2) DEFAULT 0;"))
             conn.execute(text("ALTER TABLE stock_transactions ADD COLUMN IF NOT EXISTS mrp NUMERIC(12, 2);"))
             conn.execute(text("ALTER TABLE stock_transactions ADD COLUMN IF NOT EXISTS company_discount NUMERIC(5, 2);"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS dealer_id UUID;"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS dealer_name TEXT;"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS farmer_name TEXT;"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS khata_accounts (
+                    id UUID PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    phone VARCHAR(20),
+                    role TEXT NOT NULL DEFAULT 'Dealer',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS khata_entries (
+                    id UUID PRIMARY KEY,
+                    account_id UUID NOT NULL REFERENCES khata_accounts(id) ON DELETE CASCADE,
+                    entry_date TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+                    entry_type TEXT NOT NULL CHECK (entry_type IN ('CREDIT', 'RECOVERY')),
+                    farmer_name TEXT,
+                    credit_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+                    recovery_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+                    products_detail JSONB,
+                    invoice_id VARCHAR(50),
+                    sale_id UUID,
+                    remarks TEXT,
+                    payment_method TEXT DEFAULT 'CASH',
+                    bank_name TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+            """))
+            conn.execute(text("""
+                ALTER TABLE khata_entries ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'CASH';
+            """))
+            conn.execute(text("""
+                ALTER TABLE khata_entries ADD COLUMN IF NOT EXISTS bank_name TEXT;
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS company_khata_accounts (
+                    id UUID PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    phone VARCHAR(50),
+                    catalog_company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+                CREATE TABLE IF NOT EXISTS company_khata_entries (
+                    id UUID PRIMARY KEY,
+                    account_id UUID REFERENCES company_khata_accounts(id) ON DELETE CASCADE,
+                    company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+                    entry_date TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+                    entry_type TEXT NOT NULL CHECK (entry_type IN ('PAYMENT', 'PURCHASE')),
+                    amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+                    payment_method TEXT DEFAULT 'ONLINE',
+                    bank_name TEXT,
+                    transaction_id TEXT,
+                    total_purchase_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+                    products_detail JSONB,
+                    stock_transaction_ids JSONB,
+                    remarks TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+                ALTER TABLE company_khata_entries ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES company_khata_accounts(id) ON DELETE CASCADE;
+                ALTER TABLE company_khata_entries ALTER COLUMN company_id DROP NOT NULL;
+            """))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS notes (
                     id UUID PRIMARY KEY,

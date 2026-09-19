@@ -6,6 +6,7 @@ import { ArrowLeft, Package, ShoppingCart, Layers, Plus, TrendingUp, User, Build
 import ConfirmDialog from '../components/ConfirmDialog';
 import AddSaleModal from '../components/AddSaleModal';
 import CustomDatePicker from '../components/CustomDatePicker';
+import { formatDate } from '../utils/formatters';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -342,7 +343,7 @@ const ProductDetail: React.FC = () => {
                   <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20 group transition-colors">
                     <td className="px-8 py-5">
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-500">{new Date(entry.date).toLocaleDateString()}</span>
+                        <span className="text-sm font-bold text-slate-500">{formatDate(entry.date)}</span>
                         <span className={`text-[9px] font-black uppercase tracking-tighter mt-0.5 ${isRefill ? 'text-emerald-500' : 'text-blue-500'}`}>
                           {isRefill ? 'Inventory Refill' : 'Customer Sale'}
                         </span>

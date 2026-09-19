@@ -6,6 +6,8 @@ import { ShoppingCart, Search, Calendar, Filter, User, Wallet, CreditCard, Downl
 import ConfirmDialog from '../components/ConfirmDialog';
 import CustomDatePicker from '../components/CustomDatePicker';
 import AddSaleModal from '../components/AddSaleModal';
+import CreditSaleModal from '../components/CreditSaleModal';
+import { formatDate } from '../utils/formatters';
 
 const SalesPage: React.FC = () => {
   const { companies, products, sales, stocks, deleteSale, deleteInvoice, updateSale, addSale, addBulkSale } = useData();
@@ -13,6 +15,7 @@ const SalesPage: React.FC = () => {
   const [timeFilter, setTimeFilter] = useState<'all' | 'day' | 'month' | 'year'>('day'); // Default to today
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'Credit' | 'Debit'>('all');
   const [specificDate, setSpecificDate] = useState<Date | null>(new Date()); // Today by default
+  const [isCreditSaleModalOpen, setIsCreditSaleModalOpen] = useState(false);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -189,6 +192,8 @@ const SalesPage: React.FC = () => {
       invoiceNo?: string;
       customerName: string;
       customerPhone?: string;
+      dealerName?: string;
+      farmerName?: string;
       date: string;
       totalAmount: number;
       paidAmount: number;
@@ -222,6 +227,8 @@ const SalesPage: React.FC = () => {
           invoiceNo: s.invoiceNo,
           customerName: s.customerName,
           customerPhone: s.customerPhone,
+          dealerName: s.dealerName,
+          farmerName: s.farmerName,
           date: s.date,
           totalAmount: 0,
           paidAmount: 0,
@@ -293,7 +300,7 @@ const SalesPage: React.FC = () => {
       const paid = s.paidAmount !== undefined && s.paidAmount !== null ? s.paidAmount : (s.paymentType === 'Debit' ? s.totalAmount : 0);
       const left = Math.max(0, s.totalAmount - paid);
       return [
-        new Date(s.date).toLocaleDateString(),
+        formatDate(s.date),
         `"${s.customerName.replace(/"/g, '""')}"`,
         s.customerPhone || 'N/A',
         `"${(p?.name || 'Item').replace(/"/g, '""')}"`,
@@ -383,17 +390,24 @@ const SalesPage: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Ledger Records</h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Detailed transaction logs and filter options</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setIsAddSaleModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl flex items-center gap-3 font-bold shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-7 py-4 rounded-2xl flex items-center gap-2.5 font-bold shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
           >
             <Plus className="w-5 h-5 stroke-[3px]" />
-            ADD SALE
+            CASH SALE
+          </button>
+          <button
+            onClick={() => setIsCreditSaleModalOpen(true)}
+            className="bg-rose-600 hover:bg-rose-700 text-white px-7 py-4 rounded-2xl flex items-center gap-2.5 font-bold shadow-xl shadow-rose-600/20 active:scale-95 transition-all"
+          >
+            <CreditCard className="w-5 h-5 stroke-[2.5px]" />
+            CREDIT SALE
           </button>
           <button
             onClick={exportToExcel}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl flex items-center gap-3 font-bold shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-7 py-4 rounded-2xl flex items-center gap-2.5 font-bold shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
           >
             <Download className="w-5 h-5" />
             EXPORT CSV
@@ -423,7 +437,7 @@ const SalesPage: React.FC = () => {
         <div className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 rounded-3xl p-6 border border-emerald-200 dark:border-emerald-800/30">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">Products Sold {specificDate ? `on ${specificDate.toLocaleDateString()}` : 'Today'}</h3>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Products Sold {specificDate ? `on ${formatDate(specificDate)}` : 'Today'}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">Quick calculation summary</p>
             </div>
             <ShoppingCart className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
@@ -552,10 +566,15 @@ const SalesPage: React.FC = () => {
                   <tr key={group.key} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
                     <td className="px-8 py-6">
                       <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-black text-slate-900 dark:text-white">
                             {group.customerName}
                           </span>
+                          {group.dealerName && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300">
+                              Dealer: {group.dealerName}
+                            </span>
+                          )}
                           {isMultiItem && (
                             <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
                               {group.items.length} Products
@@ -563,7 +582,7 @@ const SalesPage: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-400">
-                          <span className="uppercase">{new Date(group.date).toLocaleDateString()}</span>
+                          <span className="uppercase">{formatDate(group.date)}</span>
                           {group.customerPhone && (
                             <span className="flex items-center gap-1 text-blue-500">
                               <Phone className="w-2.5 h-2.5" /> {group.customerPhone}
@@ -692,6 +711,13 @@ const SalesPage: React.FC = () => {
       <AddSaleModal
         isOpen={isAddSaleModalOpen}
         onClose={() => setIsAddSaleModalOpen(false)}
+        initialDate={specificDate}
+      />
+
+      {/* Credit Sale & Recovery Modal */}
+      <CreditSaleModal
+        isOpen={isCreditSaleModalOpen}
+        onClose={() => setIsCreditSaleModalOpen(false)}
         initialDate={specificDate}
       />
 

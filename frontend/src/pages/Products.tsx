@@ -6,7 +6,7 @@ import { Product } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const Products: React.FC = () => {
-  const { companies, products, stocks, addProduct, updateProduct, deleteProduct } = useData();
+  const { companies, products, stocks, stockTransactions, sales, addProduct, updateProduct, deleteProduct } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +37,13 @@ const Products: React.FC = () => {
     isOpen: false,
     productId: '',
     productName: ''
+  });
+
+  // Blocked action alert dialog (cannot delete product with stock logs or sales)
+  const [blockedDialog, setBlockedDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: ''
   });
 
   const [modalError, setModalError] = useState('');
@@ -155,6 +162,45 @@ const Products: React.FC = () => {
       minStock: 5
     });
     setIsModalOpen(false);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, product: Product) => {
+    e.stopPropagation();
+    const productLogs = stockTransactions.filter(t => t.productId === product.id && !t.isDeleted);
+    const productSales = sales.filter(s => s.productId === product.id && !s.isDeleted);
+    const stock = stocks.find(s => s.productId === product.id);
+    const remainingStock = stock?.remaining || 0;
+
+    if (productLogs.length > 0 || productSales.length > 0 || remainingStock > 0) {
+      const details: string[] = [];
+      if (productLogs.length > 0) details.push(`${productLogs.length} stock log(s)`);
+      if (productSales.length > 0) details.push(`${productSales.length} sale(s)`);
+      if (remainingStock > 0) details.push(`${remainingStock} ${product.unit} remaining in stock`);
+
+      setBlockedDialog({
+        isOpen: true,
+        title: 'Cannot Delete Product',
+        message: `"${product.name}" cannot be deleted because it has active history linked to it (${details.join(', ')}). Products with stock logs or sales history cannot be deleted to preserve financial audits. If you no longer sell this product, leave its stock at 0.`
+      });
+      return;
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      productId: product.id,
+      productName: product.name
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const success = await deleteProduct(confirmDialog.productId);
+    if (!success) {
+      setBlockedDialog({
+        isOpen: true,
+        title: 'Cannot Delete Product',
+        message: `Cannot delete "${confirmDialog.productName}" because stock transactions or sales history exist for this product in the database.`
+      });
+    }
   };
 
   return (
@@ -287,7 +333,7 @@ const Products: React.FC = () => {
                         <button onClick={(e) => handleEdit(e, product)} className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 rounded-xl transition-all shadow-sm">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, productId: product.id, productName: product.name }); }} className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-red-500 rounded-xl transition-all shadow-sm">
+                        <button onClick={(e) => handleDeleteClick(e, product)} className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-red-500 rounded-xl transition-all shadow-sm">
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <ChevronRight className="w-5 h-5 text-slate-300 ml-2" />
@@ -398,8 +444,19 @@ const Products: React.FC = () => {
         message={`Are you sure you want to delete "${confirmDialog.productName}"? This action cannot be undone.`}
         confirmText="Yes, Delete"
         cancelText="Cancel"
-        onConfirm={() => deleteProduct(confirmDialog.productId)}
+        onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDialog({ isOpen: false, productId: '', productName: '' })}
+        isDangerous={true}
+      />
+
+      {/* Blocked Action Alert Dialog (When Stock Logs or Sales Exist) */}
+      <ConfirmDialog
+        isOpen={blockedDialog.isOpen}
+        title={blockedDialog.title}
+        message={blockedDialog.message}
+        confirmText="Understood"
+        onCancel={() => setBlockedDialog({ isOpen: false, title: '', message: '' })}
+        alertOnly={true}
         isDangerous={true}
       />
     </div>

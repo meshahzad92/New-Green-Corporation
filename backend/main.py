@@ -16,13 +16,12 @@ sys.path.insert(0, os.path.dirname(__file__))
 def check_database_initialized():
     """Check if database tables already exist (5 second timeout)"""
     try:
-        from app.db.session import engine
+        from app.db.session import engine, get_connect_args
         from sqlalchemy import inspect, create_engine, text
 
-        # Build a temporary engine with a short connect timeout so we never hang
-        connect_args = {"connect_timeout": 5}
-        if str(engine.url).startswith("postgresql"):
-            connect_args["sslmode"] = "require"
+        # Build a temporary engine with resilient connect_args (including hostaddr)
+        connect_args = get_connect_args(str(engine.url))
+        connect_args["connect_timeout"] = 5
         temp_engine = create_engine(
             engine.url,
             connect_args=connect_args,

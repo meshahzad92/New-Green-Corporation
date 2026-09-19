@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import './CustomDatePicker.css';
 
 interface CustomDatePickerProps {
@@ -12,6 +12,11 @@ interface CustomDatePickerProps {
     maxDate?: Date;
     disabled?: boolean;
 }
+
+const MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+];
 
 const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     selected,
@@ -34,7 +39,6 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 
         checkDarkMode();
 
-        // Watch for changes
         const observer = new MutationObserver(checkDarkMode);
         observer.observe(document.documentElement, {
             attributes: true,
@@ -50,19 +54,24 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         };
     }, []);
 
-    // Minimal header matching Figma design
-    const CustomHeader = ({
+    // Stabilize date references to prevent infinite re-render loops in react-datepicker
+    const selectedTime = selected ? selected.getTime() : null;
+    const memoizedSelected = useMemo(() => selected, [selectedTime]);
+
+    const maxDateTime = maxDate ? maxDate.toDateString() : null;
+    const memoizedMaxDate = useMemo(() => maxDate, [maxDateTime]);
+
+    const minDateTime = minDate ? minDate.toDateString() : null;
+    const memoizedMinDate = useMemo(() => minDate, [minDateTime]);
+
+    // Stable custom header reference
+    const renderCustomHeader = useCallback(({
         date,
         decreaseMonth,
         increaseMonth,
         prevMonthButtonDisabled,
         nextMonthButtonDisabled,
     }: any) => {
-        const months = [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-        ];
-
         return (
             <div className="figma-calendar-header">
                 <button
@@ -75,7 +84,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                     <ChevronLeft className="w-4 h-4" />
                 </button>
                 <div className="figma-header-text">
-                    {months[date.getMonth()]} {date.getFullYear()}
+                    {MONTHS[date.getMonth()]} {date.getFullYear()}
                 </div>
                 <button
                     type="button"
@@ -88,24 +97,24 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
                 </button>
             </div>
         );
-    };
+    }, []);
 
     return (
         <div className={`figma-datepicker-wrapper ${isDarkMode ? 'dark-mode' : 'light-mode'}`}>
             <div className="relative">
                 <DatePicker
-                    selected={selected}
+                    selected={memoizedSelected}
                     onChange={onChange}
-                    minDate={minDate}
-                    maxDate={maxDate}
+                    minDate={memoizedMinDate}
+                    maxDate={memoizedMaxDate}
                     disabled={disabled}
                     placeholderText={placeholderText}
-                    dateFormat="MMM dd, yyyy"
+                    dateFormat="d/M/yyyy"
                     className="figma-datepicker-input"
                     calendarClassName="figma-calendar"
                     showPopperArrow={false}
                     autoComplete="off"
-                    renderCustomHeader={CustomHeader}
+                    renderCustomHeader={renderCustomHeader}
                 />
             </div>
         </div>

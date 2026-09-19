@@ -401,26 +401,32 @@ def update_sale(db: Session, sale_id: UUID, sale_update: transactions.SaleUpdate
     return db_sale
 
 def delete_sale(db: Session, sale_id: UUID):
-    """Soft delete: Mark sale and its stock transaction as deleted instead of removing from database"""
-    db_sale = db.query(Sale).filter(
-        Sale.id == sale_id,
-        Sale.is_deleted == False  # Can only delete non-deleted sales
-    ).first()
+    """Soft delete: Mark sale, its stock transaction, and linked Khata entry as deleted"""
+    now = datetime.utcnow()
+    db_sale = db.query(Sale).filter(Sale.id == sale_id).first()
     
     if db_sale:
-        # Soft delete the sale
         db_sale.is_deleted = True
-        db_sale.deleted_at = datetime.utcnow()
+        db_sale.deleted_at = now
         
-        # Also soft delete the associated stock transaction
-        db_stock_transaction = db.query(StockTransaction).filter(
+        # Soft delete the associated stock transaction
+        db.query(StockTransaction).filter(
             StockTransaction.sale_id == sale_id,
             StockTransaction.is_deleted == False
-        ).first()
+        ).update({"is_deleted": True, "deleted_at": now}, synchronize_session=False)
         
-        if db_stock_transaction:
-            db_stock_transaction.is_deleted = True
-            db_stock_transaction.deleted_at = datetime.utcnow()
+        # Also soft delete associated Khata entry if this was a credit sale
+        from app.models.models import KhataEntry
+        if db_sale.invoice_id:
+            db.query(KhataEntry).filter(
+                KhataEntry.invoice_id == db_sale.invoice_id,
+                KhataEntry.is_deleted == False
+            ).update({"is_deleted": True, "deleted_at": now}, synchronize_session=False)
+        else:
+            db.query(KhataEntry).filter(
+                KhataEntry.sale_id == sale_id,
+                KhataEntry.is_deleted == False
+            ).update({"is_deleted": True, "deleted_at": now}, synchronize_session=False)
         
         db.commit()
         db.refresh(db_sale)
@@ -428,27 +434,26 @@ def delete_sale(db: Session, sale_id: UUID):
     return db_sale
 
 def delete_invoice(db: Session, invoice_id: str):
-    """Soft delete all sales and stock transactions for an invoice"""
-    sales = db.query(Sale).filter(
-        Sale.invoice_id == invoice_id,
-        Sale.is_deleted == False
-    ).all()
-    
-    if not sales:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-        
+    """Soft delete all sales, stock transactions, and Khata entries for an invoice"""
     now = datetime.utcnow()
+    sales = db.query(Sale).filter(Sale.invoice_id == invoice_id).all()
+    
     for s in sales:
         s.is_deleted = True
         s.deleted_at = now
-        db_stock_transaction = db.query(StockTransaction).filter(
+        db.query(StockTransaction).filter(
             StockTransaction.sale_id == s.id,
             StockTransaction.is_deleted == False
-        ).first()
-        if db_stock_transaction:
-            db_stock_transaction.is_deleted = True
-            db_stock_transaction.deleted_at = now
+        ).update({"is_deleted": True, "deleted_at": now}, synchronize_session=False)
             
+    # Also soft delete associated Khata entries for this invoice
+    from app.models.models import KhataEntry
+    db.query(KhataEntry).filter(
+        KhataEntry.invoice_id == invoice_id,
+        KhataEntry.is_deleted == False
+    ).update({"is_deleted": True, "deleted_at": now}, synchronize_session=False)
+
     db.commit()
     return True
+
 

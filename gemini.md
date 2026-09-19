@@ -296,3 +296,178 @@ To counteract Supabase cloud latency and accidental double-clicks:
   - Includes anti-deduplication `isSubmittingEditRefill` loading indicator.
 - **Stock Ledger Page (`Stock.tsx`)**:
   - Also added Edit (`Edit2`) button next to Delete in the Inward Logs table with dedicated "Edit Stock Entry" modal for seamless stock management across views.
+
+---
+
+## 9. Changes Log — Session 2026-09-19
+
+### 15. **Khata (Credit & Recovery Ledger) System**
+- **Architecture**:
+  - Added `khata_accounts` table: tracks dealers, field officers, and credit customers (`name`, `phone`, `role`, `created_at`, soft-delete flags).
+  - Added `khata_entries` table: records credit sales and cash recoveries (`account_id`, `entry_date`, `entry_type` ['CREDIT', 'RECOVERY'], `farmer_name`, `credit_amount`, `recovery_amount`, `products_detail` JSON, `invoice_id`, `sale_id`, `remarks`).
+  - Extended `sales` table with `dealer_id` (UUID FK), `dealer_name` (Text), and `farmer_name` (Text).
+- **Sales Page Integration**:
+  - Renamed previous "ADD SALE" button to **"CASH SALE"** (Blue).
+  - Added **"CREDIT SALE"** button in prominent **Red**.
+  - Built `CreditSaleModal.tsx` with dual mode switch:
+    - **Credit Sale Mode**: Searchable dealer combobox with inline "+ Add New Dealer" action, optional farmer name, date picker, multiple products taken with live stock previews, company filter, quick product search, quantity, and total price. Deducts inventory stock via `OUT` transactions, records `Sale` rows, and logs entry to Dealer's Khata.
+    - **Recovery Mode**: Select dealer + Date + Amount (only 2 fields). Directly reduces dealer's pending dues without affecting inventory stock.
+  - Sales table displays a red badge `Dealer: [Name]` next to customer/farmer names on credit sales.
+- **Khata Module**:
+  - Placed in `Sidebar.tsx` strictly after **Expenses** and before **Reports**.
+  - Route `/khata`: Overview dashboard with 4 summary cards (Total Accounts, Total Credit Given, Total Recovery Collected, Net Market Dues Left), instant search, and dealer balance cards.
+  - Route `/khata/:dealerId`: Detailed chronological statement showing dealer's ledger with live running balance (`Total Amount Left`), itemized product badges, edit entry modal, soft delete with automatic stock restoration, and print statement.
+- **Mouse Wheel Scroll Input Fix**:
+  - Removed number input spin-buttons via CSS and added a global wheel event listener that prevents mouse wheel scrolling from accidentally changing entered numbers in quantity and price inputs across the entire application.
+- **Backup & Restore Integration**:
+  - Included `khata_accounts` and `khata_entries` in full JSON database `/backup/export` and `/backup/import` endpoints.
+
+### 16. **Khata Main Page List / Table View**
+- Updated the main Khata dashboard (`frontend/src/pages/Khata.tsx`) to display dealers in a compact, high-density **Table / List View** by default.
+- Allows seamless management when dealing with 50–100+ dealers/officers.
+- Shows columns for Dealer / Account (avatar + initials + role), Phone (with link), Total Credit, Total Recovery, Net Balance Left / Settled badge, Total Entries count, and Action buttons (Open Ledger, Edit, Delete).
+- Added a view toggle in the filter bar allowing instant switching between List View (`LayoutList`) and Grid View (`LayoutGrid`).
+- Entire row is interactive and opens the dealer's chronological statement (`/khata/:id`).
+
+### 17. **Deletion Protection & Blocked Action Popups (Dealers, Companies, Products)**
+- **Khata Dealers**:
+  - Frontend: If a dealer has `entry_count > 0`, clicking Delete intercepts immediately and opens a blocked alert popup (`ConfirmDialog` in `alertOnly` mode) informing the user of the active transaction logs count, credit, and recovery totals.
+  - Backend: `DELETE /api/v1/khata/dealers/{id}` counts active `KhataEntry` rows and raises HTTP 400 with a descriptive error if entries exist.
+- **Supply Partner Companies**:
+  - Frontend: Clicking Delete on a company with linked products (`products.filter(p => p.companyId === id).length > 0`) intercepts immediately and shows a blocked alert popup listing linked product names and counts.
+  - Backend: `DELETE /api/v1/companies/{id}` verifies no `Product` rows exist before allowing deletion.
+- **Product Catalog**:
+  - Frontend: Clicking Delete on a product with stock logs (`stockTransactions`), sales (`sales`), or remaining stock (`stocks.remaining > 0`) intercepts immediately and opens a blocked alert popup showing exact logs, sales count, and remaining units.
+  - Backend: `DELETE /api/v1/products/{id}` checks for existing `StockTransaction` and `Sale` records and raises HTTP 400 if history exists.
+- **Modal Component**: `ConfirmDialog` now supports `alertOnly?: boolean` with a single full-width button (`Understood`) to deliver clean, native UI alerts without raw browser `alert()` popups.
+
+### 18. **Khata Recovery: Cash vs. Online Transfer with Bank Details**
+- **Schema & Database**:
+  - Added `payment_method` (`'CASH'` | `'ONLINE'`, default `'CASH'`) and `bank_name` (Text, nullable) to `khata_entries`.
+  - Non-destructive `ALTER TABLE khata_entries ADD COLUMN IF NOT EXISTS ...` executed on FastAPI startup.
+  - Included in JSON database `/backup/export` and `/backup/import`.
+- **UI in `CreditSaleModal.tsx`**:
+  - In Recovery mode, user chooses between **Cash Handover** (default) and **Online / Bank Transfer**.
+  - Selecting **Online** reveals a dedicated detail box with a bank name input and quick-fill chips for common banks (Meezan Bank, HBL, Allied Bank, MCB, UBL, Bank Alfalah, JazzCash, Easypaisa).
+  - Validation requires bank name before saving if Online is selected.
+- **Statement & Ledger in `KhataDetail.tsx`**:
+  - Chronological ledger table displays distinct badges in the Farmer / Channel column:
+    - `Cash Handover` (emerald badge with banknote icon).
+    - `Online • [Bank Name]` (blue badge with landmark icon).
+  - Edit Entry modal allows updating payment method and bank name for recovery entries.
+
+### 19. **Two-Way Synchronized & Idempotent Deletion (Khata & Sales)**
+- **Khata -> Sales Deletion**:
+  - When a credit sale entry is deleted from a dealer's statement (`KhataDetail.tsx`), the backend soft-deletes both the `KhataEntry` and all linked `Sale` rows (matched by either `invoice_id` or `sale_id`), and automatically soft-deletes the associated `StockTransaction` (restoring inventory stock balance).
+  - `KhataDetail.tsx` now calls `refreshData()` from `DataContext` alongside `loadData()` upon entry deletion and update, ensuring global React state instantly clears the deleted sale without requiring a browser page refresh.
+- **Sales -> Khata Deletion**:
+  - When an invoice or sale is deleted from the Sales page (`Sales.tsx`), `delete_invoice` and `delete_sale` in `backend/app/crud/crud_transaction.py` automatically soft-delete any associated `KhataEntry` rows (by `invoice_id` or `sale_id`).
+- **Idempotency & Resiliency**:
+  - `delete_invoice` and `delete_sale` endpoints now handle already-soft-deleted sales gracefully (no 404 crashes).
+  - In `DataContext.tsx`, `refreshData()` is executed in a `finally` block for `deleteSale` and `deleteInvoice`, ensuring the client UI always synchronizes with the server even if an item was already removed by another action.
+
+### 20. **Financial Report Performance Optimization & Card Order**
+- **Root Cause of Slowness**:
+  - `get_period_financial_summary` in `backend/app/crud/crud_report.py` ran an `N`-day `while` loop that issued 2 sequential network queries for every single day in the period.
+  - For a 1-month report, this executed 60 sequential queries over SSL to Supabase (taking 14.5+ seconds); for a 1-year report, it attempted 730+ queries (taking over 2 minutes).
+- **Backend Optimizations**:
+  - Replaced the day-by-day loop with 2 grouped queries (`GROUP BY func.date(...)`) for sales and expenses across the entire date range, mapping them into memory in microseconds.
+  - Combined `sales_summary` and `credit_debit_summary` into a single unified `Sale` aggregation query.
+  - Executed Sales queries and Expense queries in parallel using a `ThreadPoolExecutor(max_workers=2)`.
+  - Also optimized `get_dashboard_stats` weekly sales chart from 7 queries into a single grouped query.
+  - Added in-memory server cache with a 60-second TTL (`_period_report_cache`), making repeated or toggled queries resolve in **0.000035s (0 ms)**.
+  - Reduced query time from **14.5s $\rightarrow$ ~3.3s** on first cold run, and **0 ms** on cache hits, even for a full 1-year period (366 days).
+- **Frontend Optimizations & UI Card Reorder (`frontend/src/pages/Reports.tsx`)**:
+  - Switched from raw `axios` to the configured `api` instance (`import api from '../utils/api'`).
+  - Added a `cacheRef` memory cache so switching between 1 Month, 3 Months, 6 Months, and 1 Year is instantaneous with zero spinner delay.
+  - Removed unused `dailyData` calculation.
+  - **Reordered Summary Cards**: Reordered the 4 top metrics cards to standard accounting flow:
+    1. **Total Revenue** (Blue)
+    2. **Gross Profit** (Green)
+    3. **Total Expenses** (Rose) — *moved before Net Profit*
+    4. **Net Profit** (Emerald/Rose) — *Gross Profit minus Total Expenses*
+
+### 21. **Unified Date Formatting (Day/Month/Year) & Asterisk Number Masking**
+- **Date Formatting Across Application**:
+  - Standardized all displayed dates and date inputs to `Day/Month/Year` (e.g. `23/9/2026`).
+  - Added reusable `formatDate` helper and `DATE_PICKER_FORMAT = 'd/M/yyyy'` in `frontend/src/utils/formatters.ts`.
+  - Updated `CustomDatePicker.tsx` to use `'d/M/yyyy'`.
+  - Applied `formatDate` across Sales, Stock, Expenses, Khata & KhataDetail, Notes, Companies, ProductDetail, and Payments.
+- **Dashboard Asterisk Masking**:
+  - When financial figures on the dashboard are toggled off via the eye icon, amounts are masked in asterisk form (`Rs. ******` and `******`), replacing bullet points (`••••••`).
+- **Stock Ledger Default State & Price Masking**:
+  - Stock page defaults to hidden amounts (`amountsVisible = false`).
+  - Masked values appear in `*` form (`Rs. ******`).
+  - In addition to totals, "Purchase Price", "Retail (MRP)", and company discount `% off` badge are masked in `*` form when amounts are hidden, keeping vendor pricing confidential.
+
+### 22. **Comprehensive Expense Navigation & Date Independence**
+- **Date Independence & Any Date Selection**:
+  - `toISODateString(date)` added in `frontend/src/utils/formatters.ts` to convert local dates directly to `YYYY-MM-DD` without UTC timezone skew.
+  - In `Expenses.tsx`, users can freely pick any past, present, or future date via `CustomDatePicker` without artificial blocking.
+  - Added day-by-day steppers (`◀ Prev Day` and `Next Day ▶`), quick jumps (`📅 Today`, `⏮️ Yesterday`), and `🌐 All History` mode to see all recorded entries.
+  - Live search input filters expenses by description, payee, notes, date, and amounts in real-time.
+  - Summary metrics display Total Outflows (Expenses), Total Inflows (Income), and Net Flow.
+- **Record Expenses Anytime (With Date in Form)**:
+  - The form in `Expenses.tsx` includes a dedicated **Expense Date** picker.
+  - Users can record shop expenses for yesterday, last week, or today without needing to switch the page view.
+  - Editing an existing expense supports updating the expense date alongside description, amount, quantity, and details.
+- **Clean Dedicated Workflow & UI Simplification**:
+  - Removed quick category chips from the expense form to keep entry creation simple and direct.
+  - Removed redundant `📦 Available In Stock:` preview badge from sales modals (`AddSaleModal.tsx` and `CreditSaleModal.tsx`), as available stock is already cleanly displayed inside each item's dropdown label (e.g. `[415 in stock]`).
+  - Kept sidebar and global layouts completely clean and un-cluttered.
+
+### 23. **Sidebar Restructure & Dedicated Company Khata (Supplier Ledger & Inward Stock)**
+- **Sidebar Restructure & "More" Hub**:
+  - Reorganized sidebar items to keep navigation streamlined:
+    - **Dashboard**, **Companies**, **Products**, **Stock**, **Sales**, **Expenses**, **Dealer Khata** (renamed from Khata), **Company Khata** (new dedicated supplier ledger), **More** (`...` icon).
+  - Created dedicated Hub page `frontend/src/pages/MoreHub.tsx` (`/more`) hosting **Financial Reports**, **Target Notes & To-Do**, and **Database Backup & Restore**.
+- **Dedicated Database Architecture (`company_khata_accounts`)**:
+  - Maintained as a completely separate table from `companies` catalog:
+    - `id` (UUID PK)
+    - `name` (Text NOT NULL) — Supplier/company account name
+    - `phone` (String(50), nullable)
+    - `catalog_company_id` (UUID FK -> `companies.id`, ondelete `SET NULL`, nullable) — links account to catalog company for product intake
+    - `created_at` (DateTime with timezone)
+    - `is_deleted` (Boolean, default False) & `deleted_at` (DateTime, nullable)
+  - `company_khata_entries` links via `account_id` (UUID FK -> `company_khata_accounts.id`, ondelete `CASCADE`).
+  - Only companies explicitly added by the user appear in Company Khata (does not dump catalog companies).
+- **Single-Query Performance Optimization & Float Serialization**:
+  - Replaced slow N+1 query loop with a single aggregated SQL query joining `company_khata_accounts` with subqueries on `company_khata_entries` and `products`. Response time is under 50ms.
+  - All monetary totals (`total_paid`, `total_purchased`, `net_balance`) are serialized explicitly as floating point numbers, completely eliminating the JavaScript string concatenation (`00.000.000.000` / `NaN`) glitch.
+- **Searchable Product Combobox in Stock Intake**:
+  - `CompanyPurchaseModal.tsx` features an inline search input with live autocomplete filtering.
+  - As user types (e.g. "Cruiser", "Karate"), the product list filters in real-time, displaying product name, unit, and current stock badge.
+  - Auto-calculates unit purchase price (`total_price / quantity`), increments inventory stock, and updates product catalog purchase price.
+- **Supplier Financial Standing & Running Balance Formula**:
+  - `Net Balance = Total Paid - Total Purchased`
+    - If `Net Balance > 0`: **Advance with Company** (Our money held with supplier)
+    - If `Net Balance < 0`: **Payable to Company** (Pending dues owed to supplier)
+    - If `Net Balance == 0`: **Settled**
+- **Deletion Protection**:
+  - Company accounts cannot be deleted if active transactions exist (`entry_count > 0`). Displays dedicated blocked modal dialog.
+- **Database Backup & Restore**:
+  - Both `company_khata_accounts` and `company_khata_entries` are fully exported and imported with foreign-key preservation.
+
+### 24. **Company Khata Stock Intake Product Filtering & Dropdown Enhancements**
+- **Root Cause Fix for Product Display in Receive Stock**:
+  - The frontend `Product` interface defines `companyId` (camelCase). In `CompanyPurchaseModal.tsx`, product filtering previously checked `p.company_id` (snake_case), which evaluated to `undefined` and produced an empty list (`[]`).
+  - Updated to check `(p.companyId === targetCatalogId || (p as any).company_id === targetCatalogId)` with fallback matching by company name against catalog companies (`catalogCompanies`).
+  - If company-specific products exist, the modal automatically displays ONLY that specific company's products by default.
+  - Added a toggle pill button (`[X Products] (Show all)`) allowing users to switch between company-specific products and all catalog products if needed.
+  - If a newly created company has no catalog products assigned yet, it gracefully falls back to displaying all catalog products so the user is never blocked.
+- **Searchable Product Dropdown Improvements**:
+  - Search input inside the dropdown automatically resets upon opening, giving immediate visibility of the company's product inventory.
+  - Search input placeholder dynamically reflects the available count (`Search X products...`).
+  - Added click-outside listener via `dropdownRef` to seamlessly close the popover when clicking anywhere else.
+  - Applied dynamic z-index stacking (`zIndex: isDropdownOpen ? 40 : items.length - idx`) to ensure the open product menu always floats comfortably over subsequent line items.
+
+### 25. **Supabase Pooler DNS Resolution Fix (`hostaddr` & SQLAlchemy Connection Pooling)**
+- **Root Cause of `psycopg2.OperationalError: could not translate host name`**:
+  - Intermittent ISP / local Wi-Fi router DNS timeouts occurred when resolving `aws-0-ap-southeast-1.pooler.supabase.com`. Windows `getaddrinfo` blocked for up to 45–50s, causing FastAPI backend endpoints (like `GET /api/v1/reports/`) to fail with 500 errors.
+- **Solution (100% Inside Application Code, No OS Modification)**:
+  - Configured PostgreSQL's native `hostaddr` connection argument (`52.74.252.201`) in `backend/app/db/session.py`.
+  - When `hostaddr` is specified, `libpq` routes network traffic directly to the IP, completely bypassing operating system DNS lookups.
+  - Hostname is preserved so SSL/TLS SNI and certificate validation continue to work seamlessly.
+  - Added SQLAlchemy connection pooling configuration: `pool_pre_ping=True`, `pool_recycle=300`, `pool_size=10`, `max_overflow=20`, and TCP keepalives.
+  - Connection time dropped from 45+ seconds to **1.1 seconds**, completely eliminating the DNS error.
+

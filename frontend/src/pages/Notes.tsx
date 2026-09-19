@@ -7,6 +7,7 @@ import { Note } from '../types';
 import { noteService, NoteCreate, NoteUpdate } from '../utils/noteApi';
 import CustomDatePicker from '../components/CustomDatePicker';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatDate } from '../utils/formatters';
 
 const NotesPage: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -233,12 +234,7 @@ const NotesPage: React.FC = () => {
 
   const formatDateDisplay = (dateStr?: string) => {
     if (!dateStr) return null;
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-    });
+    return formatDate(dateStr);
   };
 
   const getPriorityBadge = (priority: 'low' | 'medium' | 'high') => {

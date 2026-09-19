@@ -53,7 +53,25 @@
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
+
+    /* Disable mousewheel number increment/decrement & remove spinners */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
   </style>
+  <script>
+    // Prevent mouse wheel from changing input values when hovering or focused
+    document.addEventListener('wheel', function(e) {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    }, { passive: true });
+  </script>
   <script type="importmap">
 {
   "imports": {

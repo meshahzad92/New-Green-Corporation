@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Plus, Edit2, Trash2, Building2, Search, X } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatDate } from '../utils/formatters';
 
 
 const Companies: React.FC = () => {
-  const { companies, addCompany, updateCompany, deleteCompany } = useData();
+  const { companies, addCompany, updateCompany, deleteCompany, products } = useData();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,6 +21,13 @@ const Companies: React.FC = () => {
     isOpen: false,
     companyId: '',
     companyName: ''
+  });
+
+  // Blocked action alert dialog (cannot delete company with products)
+  const [blockedDialog, setBlockedDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: ''
   });
 
 
@@ -66,8 +74,18 @@ const Companies: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string, companyName: string) => {
+  const handleDelete = (e: React.MouseEvent, id: string, companyName: string) => {
     e.stopPropagation();
+    const linkedProducts = products.filter(p => p.companyId === id);
+    if (linkedProducts.length > 0) {
+      setBlockedDialog({
+        isOpen: true,
+        title: 'Cannot Delete Company',
+        message: `"${companyName}" cannot be deleted because it has ${linkedProducts.length} product(s) linked to it (e.g. ${linkedProducts.slice(0, 3).map(p => p.name).join(', ')}${linkedProducts.length > 3 ? '...' : ''}). A company with active products cannot be removed. Please reassign or delete its products first.`
+      });
+      return;
+    }
+
     setConfirmDialog({
       isOpen: true,
       companyId: id,
@@ -78,7 +96,11 @@ const Companies: React.FC = () => {
   const confirmDelete = async () => {
     const success = await deleteCompany(confirmDialog.companyId);
     if (!success) {
-      alert('Cannot delete company because it has products linked to it.');
+      setBlockedDialog({
+        isOpen: true,
+        title: 'Cannot Delete Company',
+        message: `Cannot delete "${confirmDialog.companyName}" because products are linked to this company in the database.`
+      });
     }
   };
 
@@ -137,7 +159,7 @@ const Companies: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-900 dark:text-white text-lg">{company.name}</h3>
-                      <p className="text-xs text-slate-400 font-medium">Reg: {new Date(company.createdAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-400 font-medium">Reg: {formatDate(company.createdAt)}</p>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -217,6 +239,17 @@ const Companies: React.FC = () => {
         cancelText="Cancel"
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDialog({ isOpen: false, companyId: '', companyName: '' })}
+        isDangerous={true}
+      />
+
+      {/* Blocked Action Alert Dialog (When Products Linked) */}
+      <ConfirmDialog
+        isOpen={blockedDialog.isOpen}
+        title={blockedDialog.title}
+        message={blockedDialog.message}
+        confirmText="Understood"
+        onCancel={() => setBlockedDialog({ isOpen: false, title: '', message: '' })}
+        alertOnly={true}
         isDangerous={true}
       />
     </div>

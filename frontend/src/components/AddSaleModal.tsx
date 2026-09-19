@@ -389,22 +389,6 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
                       </select>
                     </div>
 
-                    {/* Stock Badge if selected */}
-                    {selectedProd && (
-                      <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between border border-blue-100 dark:border-blue-900/30">
-                        <span className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                          📦 {selectedProd.name}
-                        </span>
-                        <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${
-                          available > (selectedProd.minStock || 5)
-                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
-                        }`}>
-                          {available} {selectedProd.unit || 'Units'} Available
-                        </span>
-                      </div>
-                    )}
-
                     {/* Quantity and Total Amount Charged */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">

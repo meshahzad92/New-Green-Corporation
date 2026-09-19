@@ -1,8 +1,17 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, and_
 from app.models.models import Product, StockTransaction, Sale, Expense
+from app.db.session import SessionLocal
 from datetime import datetime, date, timedelta
 from decimal import Decimal
+import time
+from typing import Dict, Tuple, Any
+from concurrent.futures import ThreadPoolExecutor
+
+# In-memory cache for period reports with 60-second TTL
+_period_report_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+CACHE_TTL_SECONDS = 60
+
 
 def get_dashboard_stats(db: Session):
     # 1. Calculate Inventory Value and Stock Levels
@@ -73,20 +82,26 @@ def get_dashboard_stats(db: Session):
     sales_revenue = today_sales.revenue or Decimal('0.00')
     net_profit = sales_profit + total_expense_amount
 
-    # 4. Weekly sales data for chart (last 7 days)
-    weekly_data = []
-    for i in range(6, -1, -1):  # Last 7 days
-        day = today - timedelta(days=i)
-        day_sales = db.query(
-            func.sum(Sale.total_amount).label("revenue")
-        ).filter(
-            func.date(Sale.created_at) == day,
+    # 4. Weekly sales data for chart (last 7 days) - single grouped query
+    start_week = today - timedelta(days=6)
+    weekly_sales_rows = db.query(
+        func.date(Sale.created_at).label("day"),
+        func.coalesce(func.sum(Sale.total_amount), 0).label("revenue")
+    ).filter(
+        and_(
+            func.date(Sale.created_at) >= start_week,
+            func.date(Sale.created_at) <= today,
             Sale.is_deleted == False
-        ).first()
-        
+        )
+    ).group_by(func.date(Sale.created_at)).all()
+    weekly_map = {row.day.strftime("%Y-%m-%d"): float(row.revenue) for row in weekly_sales_rows if row.day}
+
+    weekly_data = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
         weekly_data.append({
-            "date": day.strftime("%a"),  # Mon, Tue, etc.
-            "sales": float(day_sales.revenue or 0)
+            "date": day.strftime("%a"),
+            "sales": weekly_map.get(day.strftime("%Y-%m-%d"), 0.0)
         })
     
     return {
@@ -105,128 +120,133 @@ def get_dashboard_stats(db: Session):
         "weekly_sales": weekly_data
     }
 
+def clear_report_cache():
+    """Clear in-memory cached report data"""
+    _period_report_cache.clear()
+
 def get_period_financial_summary(db: Session, start_date: date, end_date: date):
     """
-    Get comprehensive financial summary for a date range
-    Returns sales, expenses, profit, and credit/debit information
+    Get comprehensive financial summary for a date range with high-performance
+    grouped aggregation, parallel execution, and 60-second in-memory caching.
     """
-    
-    # 1. Sales Summary - only count non-deleted sales
-    sales_summary = db.query(
-        func.count(Sale.id).label("total_sales_count"),
-        func.sum(Sale.quantity).label("total_quantity_sold"),
-        func.sum(Sale.total_amount).label("total_revenue"),
-        func.sum(Sale.purchase_price * Sale.quantity).label("total_cost"),
-        func.sum(Sale.total_amount - (Sale.purchase_price * Sale.quantity)).label("gross_profit")
-    ).filter(
-        and_(
-            func.date(Sale.created_at) >= start_date,
-            func.date(Sale.created_at) <= end_date,
-            Sale.is_deleted == False
-        )
-    ).first()
-    
-    # 2. Expense Summary - split into expenses (negative) and income (positive)
-    expenses_data = db.query(
-        func.sum(case(
-            (Expense.amount < 0, Expense.amount),
-            else_=0
-        )).label("total_expenses"),
-        func.sum(case(
-            (Expense.amount > 0, Expense.amount),
-            else_=0
-        )).label("total_income"),
-        func.sum(Expense.amount).label("net_expense_total"),
-        func.count(Expense.id).label("expense_count")
-    ).filter(
-        and_(
-            func.date(Expense.expense_date) >= start_date,
-            func.date(Expense.expense_date) <= end_date,
-            Expense.is_deleted == False
-        )
-    ).first()
-    
-    # 3. Credit/Debit Summary from Sales (payment_status)
-    credit_debit_summary = db.query(
-        func.sum(case(
-            (Sale.payment_type == 'Credit', Sale.total_amount),
-            else_=0
-        )).label("total_credit"),
-        func.sum(case(
-            (Sale.payment_type == 'Debit', Sale.total_amount),
-            else_=0
-        )).label("total_cash"),
-        func.count(case(
-            (Sale.payment_type == 'Credit', 1)
-        )).label("credit_count"),
-        func.count(case(
-            (Sale.payment_type == 'Debit', 1)
-        )).label("cash_count")
-    ).filter(
-        and_(
-            func.date(Sale.created_at) >= start_date,
-            func.date(Sale.created_at) <= end_date,
-            Sale.is_deleted == False
-        )
-    ).first()
-    
-    # 4. Calculate comprehensive metrics
-    total_revenue = float(sales_summary.total_revenue or 0)
-    total_cost = float(sales_summary.total_cost or 0)
-    gross_profit = float(sales_summary.gross_profit or 0)
-    
-    # Expenses are negative, income is positive in DB
-    total_expenses = abs(float(expenses_data.total_expenses or 0))  # Convert to positive for display
+    cache_key = f"{start_date}_{end_date}"
+    now_ts = time.time()
+    if cache_key in _period_report_cache:
+        cached_ts, cached_data = _period_report_cache[cache_key]
+        if now_ts - cached_ts < CACHE_TTL_SECONDS:
+            return cached_data
+
+    def fetch_sales_data():
+        s_db = SessionLocal()
+        try:
+            summary = s_db.query(
+                func.count(Sale.id).label("total_sales_count"),
+                func.coalesce(func.sum(Sale.quantity), 0).label("total_quantity_sold"),
+                func.coalesce(func.sum(Sale.total_amount), 0).label("total_revenue"),
+                func.coalesce(func.sum(Sale.purchase_price * Sale.quantity), 0).label("total_cost"),
+                func.coalesce(func.sum(Sale.total_amount - (Sale.purchase_price * Sale.quantity)), 0).label("gross_profit"),
+                func.coalesce(func.sum(case((Sale.payment_type == 'Credit', Sale.total_amount), else_=0)), 0).label("total_credit"),
+                func.coalesce(func.sum(case((Sale.payment_type == 'Debit', Sale.total_amount), else_=0)), 0).label("total_cash"),
+                func.coalesce(func.count(case((Sale.payment_type == 'Credit', 1))), 0).label("credit_count"),
+                func.coalesce(func.count(case((Sale.payment_type == 'Debit', 1))), 0).label("cash_count")
+            ).filter(
+                and_(
+                    func.date(Sale.created_at) >= start_date,
+                    func.date(Sale.created_at) <= end_date,
+                    Sale.is_deleted == False
+                )
+            ).first()
+
+            by_day = s_db.query(
+                func.date(Sale.created_at).label("sale_date"),
+                func.coalesce(func.sum(Sale.total_amount), 0).label("revenue"),
+                func.coalesce(func.sum(Sale.total_amount - (Sale.purchase_price * Sale.quantity)), 0).label("profit")
+            ).filter(
+                and_(
+                    func.date(Sale.created_at) >= start_date,
+                    func.date(Sale.created_at) <= end_date,
+                    Sale.is_deleted == False
+                )
+            ).group_by(func.date(Sale.created_at)).all()
+            return summary, by_day
+        finally:
+            s_db.close()
+
+    def fetch_expense_data():
+        e_db = SessionLocal()
+        try:
+            summary = e_db.query(
+                func.coalesce(func.sum(case((Expense.amount < 0, Expense.amount), else_=0)), 0).label("total_expenses"),
+                func.coalesce(func.sum(case((Expense.amount > 0, Expense.amount), else_=0)), 0).label("total_income"),
+                func.coalesce(func.sum(Expense.amount), 0).label("net_expense_total"),
+                func.count(Expense.id).label("expense_count")
+            ).filter(
+                and_(
+                    func.date(Expense.expense_date) >= start_date,
+                    func.date(Expense.expense_date) <= end_date,
+                    Expense.is_deleted == False
+                )
+            ).first()
+
+            by_day = e_db.query(
+                func.date(Expense.expense_date).label("exp_date"),
+                func.coalesce(func.sum(Expense.amount), 0).label("total")
+            ).filter(
+                and_(
+                    func.date(Expense.expense_date) >= start_date,
+                    func.date(Expense.expense_date) <= end_date,
+                    Expense.is_deleted == False
+                )
+            ).group_by(func.date(Expense.expense_date)).all()
+            return summary, by_day
+        finally:
+            e_db.close()
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_sales = ex.submit(fetch_sales_data)
+        f_expenses = ex.submit(fetch_expense_data)
+        sales_data, sales_by_day = f_sales.result()
+        expenses_data, expenses_by_day = f_expenses.result()
+
+    total_revenue = float(sales_data.total_revenue or 0)
+    total_cost = float(sales_data.total_cost or 0)
+    gross_profit = float(sales_data.gross_profit or 0)
+
+    total_expenses = abs(float(expenses_data.total_expenses or 0))
     total_income_from_expenses = float(expenses_data.total_income or 0)
-    net_expense = float(expenses_data.net_expense_total or 0)  # This will be negative if more expenses than income
-    
-    # Net Profit = Gross Profit from Sales + Net Expense Total
-    # (Net expense total is negative for expenses, so it reduces profit)
+    net_expense = float(expenses_data.net_expense_total or 0)
+
     net_profit = gross_profit + net_expense
-    
-    # Credit/Debit
-    total_credit = float(credit_debit_summary.total_credit or 0)
-    total_cash = float(credit_debit_summary.total_cash or 0)
-    
-    # Daily breakdown for charts
+
+    total_credit = float(sales_data.total_credit or 0)
+    total_cash = float(sales_data.total_cash or 0)
+
+    sales_map = {row.sale_date.strftime("%Y-%m-%d"): row for row in sales_by_day if row.sale_date}
+    exp_map = {row.exp_date.strftime("%Y-%m-%d"): row for row in expenses_by_day if row.exp_date}
+
     daily_data = []
     current_date = start_date
     while current_date <= end_date:
-        # Get daily sales
-        day_sales = db.query(
-            func.sum(Sale.total_amount).label("revenue"),
-            func.sum(Sale.total_amount - (Sale.purchase_price * Sale.quantity)).label("profit")
-        ).filter(
-            func.date(Sale.created_at) == current_date,
-            Sale.is_deleted == False
-        ).first()
-        
-        # Get daily expenses
-        day_expenses = db.query(
-            func.sum(Expense.amount).label("total")
-        ).filter(
-            func.date(Expense.expense_date) == current_date,
-            Expense.is_deleted == False
-        ).first()
-        
+        d_str = current_date.strftime("%Y-%m-%d")
+        s_row = sales_map.get(d_str)
+        e_row = exp_map.get(d_str)
         daily_data.append({
-            "date": current_date.strftime("%Y-%m-%d"),
-            "revenue": float(day_sales.revenue or 0),
-            "profit": float(day_sales.profit or 0),
-            "expenses": float(day_expenses.total or 0)
+            "date": d_str,
+            "revenue": float(s_row.revenue) if s_row else 0.0,
+            "profit": float(s_row.profit) if s_row else 0.0,
+            "expenses": float(e_row.total) if e_row else 0.0
         })
-        
         current_date += timedelta(days=1)
-    
-    return {
+
+    result = {
         "period": {
             "start_date": start_date.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d"),
             "days": (end_date - start_date).days + 1
         },
         "sales_summary": {
-            "total_sales_count": sales_summary.total_sales_count or 0,
-            "total_quantity_sold": float(sales_summary.total_quantity_sold or 0),
+            "total_sales_count": sales_data.total_sales_count or 0,
+            "total_quantity_sold": float(sales_data.total_quantity_sold or 0),
             "total_revenue": total_revenue,
             "total_cost": total_cost,
             "gross_profit": gross_profit,
@@ -241,13 +261,17 @@ def get_period_financial_summary(db: Session, start_date: date, end_date: date):
         "credit_debit": {
             "total_credit": total_credit,
             "total_cash": total_cash,
-            "credit_count": credit_debit_summary.credit_count or 0,
-            "cash_count": credit_debit_summary.cash_count or 0,
+            "credit_count": sales_data.credit_count or 0,
+            "cash_count": sales_data.cash_count or 0,
             "credit_percentage": round((total_credit / total_revenue * 100), 2) if total_revenue > 0 else 0
         },
         "overall": {
             "net_profit": net_profit,
-            "total_transactions": (sales_summary.total_sales_count or 0) + (expenses_data.expense_count or 0)
+            "total_transactions": (sales_data.total_sales_count or 0) + (expenses_data.expense_count or 0)
         },
         "daily_breakdown": daily_data
     }
+
+    _period_report_cache[cache_key] = (now_ts, result)
+    return result
+

@@ -9,11 +9,14 @@ from decimal import Decimal
 def get_expenses(
     db: Session, 
     skip: int = 0, 
-    limit: int = 100,
+    limit: int = 1000,
     expense_date: date = None,
+    start_date: date = None,
+    end_date: date = None,
+    search: str = None,
     include_deleted: bool = False
 ):
-    """Get expenses, optionally filtered by date"""
+    """Get expenses, optionally filtered by specific date, date range, or keyword search"""
     query = db.query(Expense)
     
     # Filter out soft-deleted records unless explicitly requested
@@ -23,9 +26,20 @@ def get_expenses(
     # Filter by date if provided
     if expense_date:
         query = query.filter(func.date(Expense.expense_date) == expense_date)
+    elif start_date or end_date:
+        if start_date:
+            query = query.filter(func.date(Expense.expense_date) >= start_date)
+        if end_date:
+            query = query.filter(func.date(Expense.expense_date) <= end_date)
+            
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (Expense.name.ilike(term)) | (Expense.details.ilike(term))
+        )
     
-    # Order by most recent first (newest entries at top)
-    return query.order_by(Expense.created_at.desc()).offset(skip).limit(limit).all()
+    # Order by expense date descending, then created_at descending
+    return query.order_by(Expense.expense_date.desc(), Expense.created_at.desc()).offset(skip).limit(limit).all()
 
 def get_expense(db: Session, expense_id: UUID):
     """Get a single expense by ID"""

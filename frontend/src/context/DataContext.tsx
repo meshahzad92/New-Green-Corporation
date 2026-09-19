@@ -16,7 +16,7 @@ interface DataContextType {
   deleteCompany: (id: string) => Promise<boolean>;
   addProduct: (product: Omit<Product, 'id' | 'purchasePrice'>) => Promise<void>;
   updateProduct: (id: string, product: Omit<Product, 'id'>) => Promise<void>;
-  deleteProduct: (id: string) => Promise<void>;
+  deleteProduct: (id: string) => Promise<boolean>;
   addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number, mrp?: number, companyDiscount?: number) => Promise<void>;
   addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
   addBulkSale: (customerName: string, items: Array<{ productId: string; quantity: number; sellingPrice: number }>, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
@@ -202,6 +202,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           purchasePrice: parseFloat(s.purchase_price),
           customerName: s.customer_name,
           customerPhone: s.customer_phone,
+          dealerId: s.dealer_id || undefined,
+          dealerName: s.dealer_name || undefined,
+          farmerName: s.farmer_name || undefined,
           totalAmount: total,
           paidAmount: paid,
           invoiceId: s.invoice_id || undefined,
@@ -284,12 +287,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const deleteProduct = async (id: string) => {
+  const deleteProduct = async (id: string): Promise<boolean> => {
     try {
       await api.delete(`/products/${id}`);
       await refreshData();
+      return true;
     } catch (error) {
       console.error('Failed to delete product:', error);
+      return false;
     }
   };
 
@@ -400,18 +405,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteSale = async (id: string) => {
     try {
       await api.delete(`/sales/${id}`);
-      await refreshData();
     } catch (error) {
       console.error('Failed to delete sale:', error);
+    } finally {
+      await refreshData();
     }
   };
 
   const deleteInvoice = async (invoiceId: string) => {
     try {
       await api.delete(`/sales/invoice/${invoiceId}`);
-      await refreshData();
     } catch (error) {
       console.error('Failed to delete invoice:', error);
+    } finally {
+      await refreshData();
     }
   };
 

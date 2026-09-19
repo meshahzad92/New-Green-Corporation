@@ -25,10 +25,19 @@ export interface DailyTotal {
     total: number;
 }
 
+export interface ExpenseQueryParams {
+    expense_date?: string;
+    start_date?: string;
+    end_date?: string;
+    search?: string;
+    limit?: number;
+    skip?: number;
+}
+
 export const expenseService = {
-    // Get all expenses, optionally filtered by date
-    getExpenses: async (expense_date?: string): Promise<Expense[]> => {
-        const params = expense_date ? { expense_date } : {};
+    // Get all expenses, optionally filtered by date or query params
+    getExpenses: async (filter?: string | ExpenseQueryParams): Promise<Expense[]> => {
+        const params = typeof filter === 'string' ? { expense_date: filter } : (filter || {});
         const response = await api.get('/expenses/', { params });
         return response.data;
     },
