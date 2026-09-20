@@ -38,6 +38,8 @@ def startup_event():
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS dealer_id UUID;"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS dealer_name TEXT;"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS farmer_name TEXT;"))
+            # Widen customer_phone from VARCHAR(11) to VARCHAR(20) — dealer phones with dashes like '0302-8292000' are 13 chars
+            conn.execute(text("ALTER TABLE sales ALTER COLUMN customer_phone TYPE VARCHAR(20);"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS khata_accounts (
                     id UUID PRIMARY KEY,
@@ -144,7 +146,7 @@ def startup_event():
                 );
             """))
             conn.commit()
-            print("Schema verified: paid_amount, invoice columns, mrp, company_discount, notes table present, and duplicate products pruned.")
+            print("Schema verified: paid_amount, invoice columns, mrp, company_discount, notes table present, customer_phone widened to VARCHAR(20), and duplicate products pruned.")
     except Exception as e:
         print(f"Startup schema check note: {e}")
 
