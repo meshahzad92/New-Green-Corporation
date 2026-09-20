@@ -48,6 +48,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         api.get('/sales'),
         api.get('/companies/')
       ]);
+      const productsRaw = prodRes.data;
+      const transactionsRaw = transRes.data;
+      const salesRaw = saleRes.data;
+
+      const inTransactionsByProduct = new Map<string, any[]>();
+      const stockTotalsByProduct = new Map<string, { totalIn: number; totalOut: number }>();
+      const saleTotalsByProduct = new Map<string, number>();
+
+      for (const t of transactionsRaw) {
+        const totals = stockTotalsByProduct.get(t.product_id) || { totalIn: 0, totalOut: 0 };
+        if (t.type === 'IN') {
+          totals.totalIn += t.quantity || 0;
+          const list = inTransactionsByProduct.get(t.product_id) || [];
+          list.push(t);
+          inTransactionsByProduct.set(t.product_id, list);
+        } else if (t.type === 'OUT') {
+          totals.totalOut += t.quantity || 0;
+        }
+        stockTotalsByProduct.set(t.product_id, totals);
+      }
+
+      inTransactionsByProduct.forEach((list) => {
+        list.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
+
+      for (const s of salesRaw) {
+        saleTotalsByProduct.set(
+          s.product_id,
+          (saleTotalsByProduct.get(s.product_id) || 0) + (s.quantity || 0)
+        );
+      }
 
       setCompanies(compRes.data.map((c: any) => ({
         id: c.id,
@@ -56,15 +87,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })).sort((a: any, b: any) => a.name.localeCompare(b.name)));
 
       // Map backend products to frontend Product type with latest active refill pricing
-      const mappedProducts: Product[] = prodRes.data.map((p: any) => {
+      const mappedProducts: Product[] = productsRaw.map((p: any) => {
         let pPrice = parseFloat(p.purchase_price) || 0;
         let pMrp = p.mrp ? parseFloat(p.mrp) : undefined;
         let pDiscount = p.company_discount !== null && p.company_discount !== undefined ? parseFloat(p.company_discount) : undefined;
 
         // If backend values are missing or zero, check active non-deleted IN transactions for this product
-        const productInTransactions = transRes.data
-          .filter((t: any) => t.product_id === p.id && t.type === 'IN')
-          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const productInTransactions = inTransactionsByProduct.get(p.id) || [];
 
         if (productInTransactions.length > 0) {
           const latestIn = productInTransactions[0];
@@ -98,16 +127,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Map backend products to Stock type (computing arrivals and sales)
-      const mappedStocks: Stock[] = prodRes.data.map((p: any) => {
-        const totalIn = transRes.data
-          .filter((t: any) => t.product_id === p.id && t.type === 'IN')
-          .reduce((sum: number, t: any) => sum + (t.quantity || 0), 0);
-        const outFromTrans = transRes.data
-          .filter((t: any) => t.product_id === p.id && t.type === 'OUT')
-          .reduce((sum: number, t: any) => sum + (t.quantity || 0), 0);
-        const outFromSales = saleRes.data
-          .filter((s: any) => s.product_id === p.id)
-          .reduce((sum: number, s: any) => sum + (s.quantity || 0), 0);
+      const mappedStocks: Stock[] = productsRaw.map((p: any) => {
+        const stockTotals = stockTotalsByProduct.get(p.id);
+        const totalIn = stockTotals?.totalIn || 0;
+        const outFromTrans = stockTotals?.totalOut || 0;
+        const outFromSales = saleTotalsByProduct.get(p.id) || 0;
         const totalOut = Math.max(outFromTrans, outFromSales);
 
         return {
@@ -130,17 +154,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const deduplicatedProducts: Product[] = [];
       const deduplicatedStocks: Stock[] = [];
+      const mappedStocksByProduct = new Map(mappedStocks.map((stock) => [stock.productId, stock]));
 
       productGroups.forEach((group) => {
         if (group.length === 1) {
           const p = group[0];
           deduplicatedProducts.push(p);
-          const st = mappedStocks.find(s => s.productId === p.id);
+          const st = mappedStocksByProduct.get(p.id);
           if (st) deduplicatedStocks.push(st);
         } else {
           // Find stock for each candidate in group
           const candidates = group.map(p => {
-            const st = mappedStocks.find(s => s.productId === p.id);
+            const st = mappedStocksByProduct.get(p.id);
             return {
               product: p,
               stock: st,
@@ -178,7 +203,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setProducts(deduplicatedProducts);
       setStocks(deduplicatedStocks);
-      setStockTransactions(transRes.data.map((t: any) => ({
+      setStockTransactions(transactionsRaw.map((t: any) => ({
         id: t.id,
         productId: t.product_id,
         quantity: t.quantity,
@@ -189,7 +214,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: t.type,
         date: t.created_at
       })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setSales(saleRes.data.map((s: any) => {
+      setSales(salesRaw.map((s: any) => {
         const total = parseFloat(s.total_amount || 0);
         const paid = s.paid_amount !== undefined && s.paid_amount !== null
           ? parseFloat(s.paid_amount)

@@ -21,6 +21,7 @@ import {
 import { khataService, KhataAccount } from '../utils/khataApi';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CreditSaleModal from '../components/CreditSaleModal';
+import { formatAmount } from '../utils/formatters';
 
 const Khata: React.FC = () => {
   const navigate = useNavigate();
@@ -36,6 +37,7 @@ const Khata: React.FC = () => {
   const [editDealer, setEditDealer] = useState<KhataAccount | null>(null);
   const [dealerName, setDealerName] = useState('');
   const [dealerPhone, setDealerPhone] = useState('');
+  const [dealerAddress, setDealerAddress] = useState('');
   const [dealerRole, setDealerRole] = useState('Dealer');
   const [isSubmittingDealer, setIsSubmittingDealer] = useState(false);
   const [dealerModalError, setDealerModalError] = useState('');
@@ -75,7 +77,14 @@ const Khata: React.FC = () => {
     setLoading(true);
     try {
       const data = await khataService.getDealers();
-      setDealers(data);
+      // Normalize Decimal strings → numbers (Pydantic serializes Decimal as string)
+      const normalized = data.map(d => ({
+        ...d,
+        total_credit: parseFloat(String(d.total_credit)) || 0,
+        total_recovery: parseFloat(String(d.total_recovery)) || 0,
+        total_left: parseFloat(String(d.total_left)) || 0,
+      }));
+      setDealers(normalized);
     } catch (err) {
       console.error('Failed to load Khata dealers:', err);
     } finally {
@@ -87,6 +96,7 @@ const Khata: React.FC = () => {
     setEditDealer(null);
     setDealerName('');
     setDealerPhone('');
+    setDealerAddress('');
     setDealerRole('Dealer');
     setDealerModalError('');
     setIsAddDealerModalOpen(true);
@@ -97,6 +107,7 @@ const Khata: React.FC = () => {
     setEditDealer(dealer);
     setDealerName(dealer.name);
     setDealerPhone(dealer.phone || '');
+    setDealerAddress(dealer.address || '');
     setDealerRole(dealer.role || 'Dealer');
     setDealerModalError('');
     setIsAddDealerModalOpen(true);
@@ -117,12 +128,14 @@ const Khata: React.FC = () => {
         await khataService.updateDealer(editDealer.id, {
           name: dealerName.trim(),
           phone: dealerPhone.trim() || undefined,
+          address: dealerAddress.trim() || undefined,
           role: dealerRole.trim()
         });
       } else {
         await khataService.createDealer({
           name: dealerName.trim(),
           phone: dealerPhone.trim() || undefined,
+          address: dealerAddress.trim() || undefined,
           role: dealerRole.trim()
         });
       }
@@ -143,7 +156,7 @@ const Khata: React.FC = () => {
       setBlockedDialog({
         isOpen: true,
         title: 'Cannot Delete Dealer',
-        message: `"${dealer.name}" has ${dealer.entry_count} transaction ${dealer.entry_count === 1 ? 'log' : 'logs'} recorded in their Khata (Total Credit: Rs. ${dealer.total_credit.toLocaleString()}, Total Recovery: Rs. ${dealer.total_recovery.toLocaleString()}). You cannot delete a dealer while active transactions exist. Please clear or delete all Khata entries first.`
+        message: `"${dealer.name}" has ${dealer.entry_count} transaction ${dealer.entry_count === 1 ? 'log' : 'logs'} recorded in their Khata (Total Credit: Rs. ${formatAmount(dealer.total_credit)}, Total Recovery: Rs. ${formatAmount(dealer.total_recovery)}). You cannot delete a dealer while active transactions exist. Please clear or delete all Khata entries first.`
       });
       return;
     }
@@ -175,8 +188,8 @@ const Khata: React.FC = () => {
   // Aggregated Metrics
   const metrics = useMemo(() => {
     const totalAccounts = dealers.length;
-    const totalCredit = dealers.reduce((sum, d) => sum + (d.total_credit || 0), 0);
-    const totalRecovery = dealers.reduce((sum, d) => sum + (d.total_recovery || 0), 0);
+    const totalCredit = dealers.reduce((sum, d) => sum + (parseFloat(String(d.total_credit)) || 0), 0);
+    const totalRecovery = dealers.reduce((sum, d) => sum + (parseFloat(String(d.total_recovery)) || 0), 0);
     const totalPending = totalCredit - totalRecovery;
     return { totalAccounts, totalCredit, totalRecovery, totalPending };
   }, [dealers]);
@@ -185,15 +198,16 @@ const Khata: React.FC = () => {
   const filteredDealers = useMemo(() => {
     return dealers.filter(d => {
       const matchSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (d.phone && d.phone.includes(searchTerm));
+        (d.phone && d.phone.includes(searchTerm)) ||
+        (d.address && d.address.toLowerCase().includes(searchTerm.toLowerCase()));
       
       if (!matchSearch) return false;
 
       if (filterType === 'pending') {
-        return d.total_left > 0;
+        return parseFloat(String(d.total_left)) > 0;
       }
       if (filterType === 'settled') {
-        return d.total_left <= 0;
+        return parseFloat(String(d.total_left)) <= 0;
       }
       return true;
     });
@@ -271,7 +285,7 @@ const Khata: React.FC = () => {
               Total Credit Dispatched
             </p>
             <h3 className="text-3xl font-black text-rose-700 dark:text-rose-300">
-              Rs. {metrics.totalCredit.toLocaleString()}
+              Rs. {formatAmount(metrics.totalCredit)}
             </h3>
             <p className="text-xs text-rose-600/70 dark:text-rose-400/70 font-bold mt-1">Total spray value given</p>
           </div>
@@ -287,7 +301,7 @@ const Khata: React.FC = () => {
               Total Recovery Received
             </p>
             <h3 className="text-3xl font-black text-emerald-700 dark:text-emerald-300">
-              Rs. {metrics.totalRecovery.toLocaleString()}
+              Rs. {formatAmount(metrics.totalRecovery)}
             </h3>
             <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold mt-1">Cash collected back</p>
           </div>
@@ -303,7 +317,7 @@ const Khata: React.FC = () => {
               Net Amount Left
             </p>
             <h3 className="text-3xl font-black">
-              Rs. {metrics.totalPending.toLocaleString()}
+              Rs. {formatAmount(metrics.totalPending)}
             </h3>
             <p className="text-xs text-rose-100 font-bold mt-1">Pending market credit</p>
           </div>
@@ -319,7 +333,7 @@ const Khata: React.FC = () => {
           <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search dealer or phone..."
+            placeholder="Search dealer, phone or address..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500"
@@ -423,7 +437,7 @@ const Khata: React.FC = () => {
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 text-[10px] font-black uppercase tracking-widest text-slate-400">
                   <th className="px-6 py-4">Dealer / Account</th>
-                  <th className="px-6 py-4">Phone</th>
+                  <th className="px-6 py-4">Contact</th>
                   <th className="px-6 py-4 text-right text-rose-500">Total Credit</th>
                   <th className="px-6 py-4 text-right text-emerald-500">Total Recovery</th>
                   <th className="px-6 py-4 text-right">Net Amount Left</th>
@@ -455,6 +469,11 @@ const Khata: React.FC = () => {
                             <div className="text-[11px] text-slate-400 font-bold">
                               {dealer.role || 'Field Officer'}
                             </div>
+                            {dealer.address && (
+                              <div className="text-[11px] text-slate-400 font-semibold max-w-xs truncate" title={dealer.address}>
+                                {dealer.address}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -473,19 +492,19 @@ const Khata: React.FC = () => {
 
                       {/* Total Credit */}
                       <td className="px-6 py-4 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                        Rs. {dealer.total_credit.toLocaleString()}
+                        Rs. {formatAmount(dealer.total_credit)}
                       </td>
 
                       {/* Total Recovery */}
                       <td className="px-6 py-4 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                        Rs. {dealer.total_recovery.toLocaleString()}
+                        Rs. {formatAmount(dealer.total_recovery)}
                       </td>
 
                       {/* Net Amount Left */}
                       <td className="px-6 py-4 text-right whitespace-nowrap">
                         {hasPending ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40">
-                            Rs. {dealer.total_left.toLocaleString()} Left
+                            Rs. {formatAmount(dealer.total_left)} Left
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
@@ -606,7 +625,7 @@ const Khata: React.FC = () => {
                       <span className={`text-2xl font-black ${
                         hasPending ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400'
                       }`}>
-                        {hasPending ? `Rs. ${dealer.total_left.toLocaleString()}` : '✓ Fully Settled'}
+                        {hasPending ? `Rs. ${formatAmount(dealer.total_left)}` : '✓ Fully Settled'}
                       </span>
                       <span className="text-xs font-bold text-slate-400">
                         {dealer.entry_count} {dealer.entry_count === 1 ? 'entry' : 'entries'}
@@ -619,13 +638,13 @@ const Khata: React.FC = () => {
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl">
                       <span className="text-slate-400 text-[10px] uppercase font-bold block">Credit</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
-                        Rs. {dealer.total_credit.toLocaleString()}
+                        Rs. {formatAmount(dealer.total_credit)}
                       </span>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl">
                       <span className="text-slate-400 text-[10px] uppercase font-bold block">Recovery</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        Rs. {dealer.total_recovery.toLocaleString()}
+                        Rs. {formatAmount(dealer.total_recovery)}
                       </span>
                     </div>
                   </div>
@@ -686,6 +705,19 @@ const Khata: React.FC = () => {
                   value={dealerPhone}
                   onChange={(e) => setDealerPhone(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Address (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Village, city, market, or shop address"
+                  value={dealerAddress}
+                  onChange={(e) => setDealerAddress(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500 resize-none"
                 />
               </div>
 

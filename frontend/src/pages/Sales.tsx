@@ -7,7 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import CustomDatePicker from '../components/CustomDatePicker';
 import AddSaleModal from '../components/AddSaleModal';
 import CreditSaleModal from '../components/CreditSaleModal';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatAmount } from '../utils/formatters';
 
 const SalesPage: React.FC = () => {
   const { companies, products, sales, stocks, deleteSale, deleteInvoice, updateSale, addSale, addBulkSale } = useData();
@@ -419,14 +419,14 @@ const SalesPage: React.FC = () => {
         <div className="bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-800/20 p-6 rounded-3xl flex justify-between items-center group transition-all hover:shadow-lg">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Total Credit (Pending)</p>
-            <h3 className="text-3xl font-black text-rose-700 dark:text-rose-400">Rs. {totalCredit.toLocaleString()}</h3>
+            <h3 className="text-3xl font-black text-rose-700 dark:text-rose-400">Rs. {formatAmount(totalCredit)}</h3>
           </div>
           <CreditCard className="w-10 h-10 text-rose-300 group-hover:scale-110 transition-transform" />
         </div>
         <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/20 p-6 rounded-3xl flex justify-between items-center group transition-all hover:shadow-lg">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Total Debit (Paid)</p>
-            <h3 className="text-3xl font-black text-emerald-700 dark:text-emerald-400">Rs. {totalDebit.toLocaleString()}</h3>
+            <h3 className="text-3xl font-black text-emerald-700 dark:text-emerald-400">Rs. {formatAmount(totalDebit)}</h3>
           </div>
           <Wallet className="w-10 h-10 text-emerald-300 group-hover:scale-110 transition-transform" />
         </div>
@@ -603,7 +603,7 @@ const SalesPage: React.FC = () => {
                             {group.items[0].productName}
                           </p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">
-                            Rs. {group.items[0].sellingPrice.toLocaleString()}/ea
+                            Rs. {formatAmount(group.items[0].sellingPrice)}/ea
                             {group.items[0].companyName ? ` • ${group.items[0].companyName}` : ''}
                           </p>
                         </div>
@@ -615,7 +615,7 @@ const SalesPage: React.FC = () => {
                                 • {item.productName}
                               </span>
                               <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">
-                                {item.quantity} pk × Rs. {item.sellingPrice.toLocaleString()}
+                                {item.quantity} pk × Rs. {formatAmount(item.sellingPrice)}
                               </span>
                             </div>
                           ))}
@@ -635,12 +635,12 @@ const SalesPage: React.FC = () => {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="font-black text-slate-900 dark:text-white text-base">
-                        Rs. {group.totalAmount.toLocaleString()}
+                        Rs. {formatAmount(group.totalAmount)}
                       </div>
                       <div className="flex flex-col items-end gap-0.5 mt-1 text-[11px] font-bold">
-                        <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {group.paidAmount.toLocaleString()}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {formatAmount(group.paidAmount)}</span>
                         {group.left > 0 ? (
-                          <span className="text-rose-600 dark:text-rose-400 font-extrabold">Left: Rs. {group.left.toLocaleString()}</span>
+                          <span className="text-rose-600 dark:text-rose-400 font-extrabold">Left: Rs. {formatAmount(group.left)}</span>
                         ) : (
                           <span className="text-slate-400 dark:text-slate-500 font-medium">✓ Cleared</span>
                         )}
@@ -648,7 +648,7 @@ const SalesPage: React.FC = () => {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <span className={`font-black text-sm ${group.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                        {group.totalProfit >= 0 ? '+' : ''}Rs. {Math.abs(group.totalProfit).toLocaleString()}
+                        {group.totalProfit >= 0 ? '+' : ''}Rs. {formatAmount(Math.abs(group.totalProfit))}
                       </span>
                       {group.items.length > 1 && (
                         <p className="text-[9px] text-slate-400 font-bold mt-0.5 uppercase">{group.items.length} items</p>
@@ -876,12 +876,12 @@ const SalesPage: React.FC = () => {
                     <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4 border-2 border-slate-200 dark:border-slate-700 space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-black uppercase tracking-widest text-slate-400">Total Invoice:</span>
-                        <span className="text-xl font-black text-slate-900 dark:text-white">Rs. {total.toLocaleString()}</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white">Rs. {formatAmount(total)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs font-bold">
-                        <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {paid.toLocaleString()}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {formatAmount(paid)}</span>
                         <span className={left > 0 ? "text-rose-600 dark:text-rose-400 font-extrabold" : "text-slate-400"}>
-                          {left > 0 ? `Left: Rs. ${left.toLocaleString()}` : '0 Left (Fully Paid)'}
+                          {left > 0 ? `Left: Rs. ${formatAmount(left)}` : '0 Left (Fully Paid)'}
                         </span>
                       </div>
                     </div>
@@ -1005,12 +1005,12 @@ const SalesPage: React.FC = () => {
                   <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4 border-2 border-slate-200 dark:border-slate-700 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-black uppercase tracking-widest text-slate-400">Total Invoice:</span>
-                      <span className="text-xl font-black text-slate-900 dark:text-white">Rs. {editInvoiceModal.totalInvoice.toLocaleString()}</span>
+                      <span className="text-xl font-black text-slate-900 dark:text-white">Rs. {formatAmount(editInvoiceModal.totalInvoice)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs font-bold">
-                      <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {editInvoiceModal.paidAmount.toLocaleString()}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">Paid: Rs. {formatAmount(editInvoiceModal.paidAmount)}</span>
                       <span className={left > 0 ? 'text-rose-600 dark:text-rose-400 font-extrabold' : 'text-slate-400'}>
-                        {left > 0 ? `Left: Rs. ${left.toLocaleString()}` : '✓ Fully Paid'}
+                        {left > 0 ? `Left: Rs. ${formatAmount(left)}` : '✓ Fully Paid'}
                       </span>
                     </div>
                   </div>

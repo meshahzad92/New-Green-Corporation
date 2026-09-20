@@ -12,7 +12,8 @@ from app.schemas.khata import (
     KhataEntryUpdate,
     KhataEntryResponse,
     KhataCreditSaleCreate,
-    KhataRecoveryCreate
+    KhataRecoveryCreate,
+    KhataManualCreditCreate
 )
 from app.crud import crud_khata
 
@@ -82,6 +83,11 @@ def create_credit_sale(credit_sale_in: KhataCreditSaleCreate, db: Session = Depe
 def create_recovery(recovery_in: KhataRecoveryCreate, db: Session = Depends(get_db)):
     """Record cash recovery: logs recovery into Khata, subtracts from dealer credit"""
     return crud_khata.create_recovery(db, recovery_in)
+
+@router.post("/manual-credit", response_model=KhataEntryResponse)
+def create_manual_credit(credit_in: KhataManualCreditCreate, db: Session = Depends(get_db)):
+    """Record a manual credit entry (previous dues from register) — no stock deduction"""
+    return crud_khata.create_manual_credit(db, credit_in)
 
 @router.put("/entries/{entry_id}", response_model=KhataEntryResponse)
 def update_entry(entry_id: UUID, entry_in: KhataEntryUpdate, db: Session = Depends(get_db)):

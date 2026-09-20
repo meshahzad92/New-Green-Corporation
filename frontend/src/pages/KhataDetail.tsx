@@ -17,14 +17,15 @@ import {
   Phone,
   FileText,
   Banknote,
-  Landmark
+  Landmark,
+  ClipboardList
 } from 'lucide-react';
-import { khataService, KhataAccount, KhataEntry } from '../utils/khataApi';
+import { khataService, KhataAccount, KhataEntry, KhataManualCreditCreate } from '../utils/khataApi';
 import { useData } from '../context/DataContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CreditSaleModal from '../components/CreditSaleModal';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatAmount } from '../utils/formatters';
 
 const KhataDetail: React.FC = () => {
   const { dealerId } = useParams<{ dealerId: string }>();
@@ -40,6 +41,14 @@ const KhataDetail: React.FC = () => {
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'credit' | 'recovery'>('credit');
+
+  // Manual Credit Modal
+  const [manualCreditOpen, setManualCreditOpen] = useState(false);
+  const [manualCreditDate, setManualCreditDate] = useState<Date>(new Date());
+  const [manualCreditAmount, setManualCreditAmount] = useState('');
+  const [manualCreditPerson, setManualCreditPerson] = useState('');
+  const [manualCreditRemarks, setManualCreditRemarks] = useState('');
+  const [isSubmittingManualCredit, setIsSubmittingManualCredit] = useState(false);
 
   // Edit Entry Modal
   const [editingEntry, setEditingEntry] = useState<KhataEntry | null>(null);
@@ -74,12 +83,51 @@ const KhataDetail: React.FC = () => {
         khataService.getDealer(dealerId),
         khataService.getDealerLedger(dealerId)
       ]);
-      setDealer(dData);
-      setLedger(lData);
+      // Normalize Decimal strings → numbers
+      setDealer({
+        ...dData,
+        total_credit: parseFloat(String(dData.total_credit)) || 0,
+        total_recovery: parseFloat(String(dData.total_recovery)) || 0,
+        total_left: parseFloat(String(dData.total_left)) || 0,
+      });
+      setLedger(lData.map(e => ({
+        ...e,
+        credit_amount: parseFloat(String(e.credit_amount)) || 0,
+        recovery_amount: parseFloat(String(e.recovery_amount)) || 0,
+        running_balance: parseFloat(String(e.running_balance ?? 0)) || 0,
+      })));
     } catch (err) {
       console.error('Failed to load dealer ledger:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveManualCredit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dealerId || isSubmittingManualCredit) return;
+    const amt = parseFloat(manualCreditAmount);
+    if (!amt || amt <= 0) return;
+
+    setIsSubmittingManualCredit(true);
+    try {
+      await khataService.createManualCredit({
+        dealer_id: dealerId,
+        entry_date: manualCreditDate.toISOString(),
+        amount: amt,
+        person_name: manualCreditPerson.trim() || undefined,
+        remarks: manualCreditRemarks.trim() || undefined,
+      });
+      setManualCreditOpen(false);
+      setManualCreditAmount('');
+      setManualCreditPerson('');
+      setManualCreditRemarks('');
+      setManualCreditDate(new Date());
+      await loadData();
+    } catch (err) {
+      console.error('Failed to save manual credit:', err);
+    } finally {
+      setIsSubmittingManualCredit(false);
     }
   };
 
@@ -227,6 +275,19 @@ const KhataDetail: React.FC = () => {
             + ADD RECOVERY
           </button>
           <button
+            onClick={() => {
+              setManualCreditDate(new Date());
+              setManualCreditAmount('');
+              setManualCreditPerson('');
+              setManualCreditRemarks('');
+              setManualCreditOpen(true);
+            }}
+            className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+          >
+            <ClipboardList className="w-4 h-4" />
+            + PREVIOUS CREDIT
+          </button>
+          <button
             onClick={handlePrint}
             className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-4 py-3 rounded-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-all"
           >
@@ -244,7 +305,7 @@ const KhataDetail: React.FC = () => {
             Total Credit Given
           </span>
           <h3 className="text-2xl font-black text-rose-600 dark:text-rose-400">
-            Rs. {dealer.total_credit.toLocaleString()}
+            Rs. {formatAmount(dealer.total_credit)}
           </h3>
           <p className="text-xs text-slate-400 font-bold mt-1">Cumulative spray taken</p>
         </div>
@@ -255,7 +316,7 @@ const KhataDetail: React.FC = () => {
             Total Recovery Received
           </span>
           <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            Rs. {dealer.total_recovery.toLocaleString()}
+            Rs. {formatAmount(dealer.total_recovery)}
           </h3>
           <p className="text-xs text-slate-400 font-bold mt-1">Cumulative cash paid</p>
         </div>
@@ -270,7 +331,7 @@ const KhataDetail: React.FC = () => {
             Total Amount Left
           </span>
           <h3 className="text-3xl font-black">
-            Rs. {dealer.total_left.toLocaleString()}
+            Rs. {formatAmount(dealer.total_left)}
           </h3>
           <p className="text-xs text-white/80 font-bold mt-1">
             {dealer.total_left > 0 ? 'Outstanding Market Dues' : '✓ Fully Settled (Zero Dues)'}
@@ -423,18 +484,18 @@ const KhataDetail: React.FC = () => {
 
                     {/* Credit Amount (+Rs.) */}
                     <td className="px-6 py-4 text-right font-black text-rose-600 dark:text-rose-400">
-                      {isCredit && entry.credit_amount > 0 ? `+Rs. ${entry.credit_amount.toLocaleString()}` : '—'}
+                      {isCredit && entry.credit_amount > 0 ? `+Rs. ${formatAmount(entry.credit_amount)}` : '—'}
                     </td>
 
                     {/* Recovery Amount (-Rs.) */}
                     <td className="px-6 py-4 text-right font-black text-emerald-600 dark:text-emerald-400">
-                      {!isCredit && entry.recovery_amount > 0 ? `-Rs. ${entry.recovery_amount.toLocaleString()}` : '—'}
+                      {!isCredit && entry.recovery_amount > 0 ? `-Rs. ${formatAmount(entry.recovery_amount)}` : '—'}
                     </td>
 
                     {/* Running Balance (Total Amount Left) */}
                     <td className="px-6 py-4 text-right">
                       <span className="font-black text-sm text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-xl">
-                        Rs. {(entry.running_balance ?? 0).toLocaleString()}
+                        Rs. {(entry.running_balance ?? formatAmount(0))}
                       </span>
                     </td>
 
@@ -484,6 +545,119 @@ const KhataDetail: React.FC = () => {
         initialDealerId={dealer.id}
         defaultMode={modalMode}
       />
+
+      {/* Manual Credit Modal — Previous Dues from Register */}
+      {manualCreditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+            {/* Header */}
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="p-2 bg-amber-100 dark:bg-amber-950/50 rounded-xl">
+                  <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </span>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Add Previous Credit
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 font-bold ml-12">
+                Enter outstanding amount from your shop register — no stock will be deducted.
+              </p>
+            </div>
+
+            {/* Info Banner */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-2xl px-4 py-3">
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                💡 Use this to record a credit amount this dealer already owes you from before — e.g., from your manual register.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveManualCredit} className="space-y-4">
+              {/* Date */}
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Credit Date
+                </label>
+                <CustomDatePicker
+                  selected={manualCreditDate}
+                  onChange={(d) => setManualCreditDate(d || new Date())}
+                  placeholderText="Select date..."
+                />
+              </div>
+
+              {/* Amount */}
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Credit Amount (Rs.) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="any"
+                  value={manualCreditAmount}
+                  onChange={(e) => setManualCreditAmount(e.target.value)}
+                  placeholder="e.g. 15000"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                  required
+                  autoFocus
+                />
+                {manualCreditAmount && parseFloat(manualCreditAmount) > 0 && (
+                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                    + Rs. {formatAmount(parseFloat(manualCreditAmount))} will be added to this dealer's outstanding dues.
+                  </p>
+                )}
+              </div>
+
+              {/* Person Name (Optional) */}
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Person / Farmer Name <span className="text-slate-300 font-normal normal-case">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualCreditPerson}
+                  onChange={(e) => setManualCreditPerson(e.target.value)}
+                  placeholder="e.g. Ahmed (farmer this was for)"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Remarks */}
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Remarks <span className="text-slate-300 font-normal normal-case">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualCreditRemarks}
+                  onChange={(e) => setManualCreditRemarks(e.target.value)}
+                  placeholder="e.g. Old dues from register, Oct 2025"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setManualCreditOpen(false)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingManualCredit}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                >
+                  {isSubmittingManualCredit ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {isSubmittingManualCredit ? 'Saving...' : 'Save Credit Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Entry Modal */}
       {editingEntry && (

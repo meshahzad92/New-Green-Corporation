@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Building2, CreditCard, Banknote, Calendar, CheckCircle, Loader2 } from 'lucide-react';
 import CustomDatePicker from './CustomDatePicker';
 import { companyKhataService, CompanyKhataOverview } from '../utils/companyKhataApi';
+import { formatAmount } from '../utils/formatters';
 
 interface CompanyPaymentModalProps {
   isOpen: boolean;
@@ -293,7 +294,7 @@ export const CompanyPaymentModal: React.FC<CompanyPaymentModalProps> = ({
             </div>
             {amount && parseFloat(amount) > 0 && (
               <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                Rs. {Number(amount).toLocaleString()}
+                Rs. {formatAmount(Number(amount))}
               </p>
             )}
           </div>

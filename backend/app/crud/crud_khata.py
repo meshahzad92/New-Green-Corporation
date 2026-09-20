@@ -15,37 +15,48 @@ from app.schemas.khata import (
     KhataEntryUpdate,
     KhataEntryResponse,
     KhataCreditSaleCreate,
-    KhataRecoveryCreate
+    KhataRecoveryCreate,
+    KhataManualCreditCreate
 )
 from app.crud.crud_transaction import get_product_stock
 
 def get_dealers(db: Session) -> List[dict]:
-    dealers = db.query(KhataAccount).filter(KhataAccount.is_deleted == False).order_by(KhataAccount.name.asc()).all()
-    
-    result = []
-    for d in dealers:
-        stats = db.query(
-            func.coalesce(func.sum(KhataEntry.credit_amount), 0).label('total_credit'),
-            func.coalesce(func.sum(KhataEntry.recovery_amount), 0).label('total_recovery'),
-            func.count(KhataEntry.id).label('entry_count')
-        ).filter(
-            KhataEntry.account_id == d.id,
-            KhataEntry.is_deleted == False
-        ).first()
+    stats_subq = db.query(
+        KhataEntry.account_id.label("account_id"),
+        func.coalesce(func.sum(KhataEntry.credit_amount), 0).label("total_credit"),
+        func.coalesce(func.sum(KhataEntry.recovery_amount), 0).label("total_recovery"),
+        func.count(KhataEntry.id).label("entry_count")
+    ).filter(
+        KhataEntry.is_deleted == False
+    ).group_by(KhataEntry.account_id).subquery()
 
-        total_credit = Decimal(str(stats.total_credit or 0))
-        total_recovery = Decimal(str(stats.total_recovery or 0))
+    rows = db.query(
+        KhataAccount,
+        func.coalesce(stats_subq.c.total_credit, 0).label("total_credit"),
+        func.coalesce(stats_subq.c.total_recovery, 0).label("total_recovery"),
+        func.coalesce(stats_subq.c.entry_count, 0).label("entry_count")
+    ).outerjoin(
+        stats_subq, stats_subq.c.account_id == KhataAccount.id
+    ).filter(
+        KhataAccount.is_deleted == False
+    ).order_by(KhataAccount.name.asc()).all()
+
+    result = []
+    for d, total_credit_raw, total_recovery_raw, entry_count in rows:
+        total_credit = Decimal(str(total_credit_raw or 0))
+        total_recovery = Decimal(str(total_recovery_raw or 0))
         total_left = total_credit - total_recovery
 
         result.append({
             'id': d.id,
             'name': d.name,
             'phone': d.phone,
+            'address': d.address,
             'role': d.role,
             'total_credit': total_credit,
             'total_recovery': total_recovery,
             'total_left': total_left,
-            'entry_count': stats.entry_count or 0,
+            'entry_count': entry_count or 0,
             'created_at': d.created_at
         })
     return result
@@ -72,6 +83,7 @@ def get_dealer(db: Session, dealer_id: uuid.UUID) -> Optional[dict]:
         'id': d.id,
         'name': d.name,
         'phone': d.phone,
+        'address': d.address,
         'role': d.role,
         'total_credit': total_credit,
         'total_recovery': total_recovery,
@@ -92,6 +104,7 @@ def create_dealer(db: Session, dealer_in: KhataAccountCreate) -> KhataAccount:
     db_dealer = KhataAccount(
         name=trimmed_name,
         phone=dealer_in.phone.strip() if dealer_in.phone else None,
+        address=dealer_in.address.strip() if dealer_in.address else None,
         role=dealer_in.role or 'Dealer'
     )
     db.add(db_dealer)
@@ -108,6 +121,8 @@ def update_dealer(db: Session, dealer_id: uuid.UUID, dealer_in: KhataAccountUpda
         db_dealer.name = dealer_in.name.strip()
     if dealer_in.phone is not None:
         db_dealer.phone = dealer_in.phone.strip() if dealer_in.phone else None
+    if dealer_in.address is not None:
+        db_dealer.address = dealer_in.address.strip() if dealer_in.address else None
     if dealer_in.role is not None:
         db_dealer.role = dealer_in.role.strip()
 
@@ -286,6 +301,46 @@ def create_recovery(db: Session, recovery_in: KhataRecoveryCreate) -> KhataEntry
         bank_name=recovery_in.bank_name.strip() if recovery_in.bank_name else None,
         products_detail=None,
         remarks=recovery_in.remarks
+    )
+    db.add(khata_entry)
+    db.commit()
+    db.refresh(khata_entry)
+    return khata_entry
+
+def create_manual_credit(db: Session, credit_in: KhataManualCreditCreate) -> KhataEntry:
+    """Record a manual credit (previous dues from register) — no stock deduction, no sale."""
+    dealer = db.query(KhataAccount).filter(KhataAccount.id == credit_in.dealer_id, KhataAccount.is_deleted == False).first()
+    if not dealer:
+        raise HTTPException(status_code=404, detail='Dealer not found')
+
+    # 15-second dedup guard
+    cutoff = datetime.utcnow() - timedelta(seconds=15)
+    recent = db.query(KhataEntry).filter(
+        KhataEntry.account_id == dealer.id,
+        KhataEntry.entry_type == 'CREDIT',
+        KhataEntry.credit_amount == credit_in.amount,
+        KhataEntry.invoice_id == None,
+        KhataEntry.sale_id == None,
+        KhataEntry.is_deleted == False,
+        KhataEntry.created_at >= cutoff
+    ).first()
+    if recent:
+        return recent
+
+    entry_dt = credit_in.entry_date or datetime.utcnow()
+    person_clean = credit_in.person_name.strip() if credit_in.person_name and credit_in.person_name.strip() else None
+
+    khata_entry = KhataEntry(
+        account_id=dealer.id,
+        entry_date=entry_dt,
+        entry_type='CREDIT',
+        farmer_name=person_clean,
+        credit_amount=credit_in.amount,
+        recovery_amount=Decimal('0.00'),
+        products_detail=None,
+        invoice_id=None,
+        sale_id=None,
+        remarks=credit_in.remarks
     )
     db.add(khata_entry)
     db.commit()

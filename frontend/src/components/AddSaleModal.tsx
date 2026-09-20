@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { ShoppingCart, User, Plus, Trash2, Search, X } from 'lucide-react';
 import CustomDatePicker from './CustomDatePicker';
+import { formatAmount } from '../utils/formatters';
 
 export interface AddSaleItem {
   id: string;
@@ -56,7 +57,13 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
       if (initialProductId) {
         const prod = products.find(p => p.id === initialProductId);
         const compId = prod?.companyId || 'all';
-        setSaleItems([createInitialSaleItem(initialProductId, compId)]);
+        const initialItem = createInitialSaleItem(initialProductId, compId);
+        if (prod) {
+          const sellingRate = prod.mrp || prod.purchasePrice || 0;
+          initialItem.price = sellingRate.toString();
+          initialItem.totalAmount = sellingRate.toString();
+        }
+        setSaleItems([initialItem]);
       } else {
         setSaleItems([createInitialSaleItem()]);
       }
@@ -87,7 +94,22 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
       if (item.id !== id) return item;
       const updated = { ...item, ...updates };
 
-      if ('totalAmount' in updates || 'quantity' in updates) {
+      if ('productId' in updates) {
+        const prod = products.find(p => p.id === updates.productId);
+        if (prod) {
+          const q = parseFloat(updated.quantity) || 1;
+          const sellingRate = prod.mrp || prod.purchasePrice || 0;
+          updated.price = sellingRate.toString();
+          updated.totalAmount = (q * sellingRate).toString();
+        } else {
+          updated.price = '0';
+          updated.totalAmount = '';
+        }
+      } else if ('quantity' in updates) {
+        const q = parseFloat(updated.quantity) || 0;
+        const p = parseFloat(updated.price) || 0;
+        updated.totalAmount = q > 0 && p > 0 ? (q * p).toString() : '';
+      } else if ('totalAmount' in updates) {
         const q = parseFloat(updated.quantity) || 0;
         const tot = parseFloat(updated.totalAmount) || 0;
         if (q > 0 && tot > 0) {
@@ -424,7 +446,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
                         Rate: <span className="font-bold text-slate-700 dark:text-slate-300">Rs. {item.price || '0'}</span> / {selectedProd?.unit || 'pack'}
                       </span>
                       <span className="font-black text-emerald-600 dark:text-emerald-400">
-                        Line Total: Rs. {lineTotal.toLocaleString()}
+                        Line Total: Rs. {formatAmount(lineTotal)}
                       </span>
                     </div>
                   </div>
@@ -448,7 +470,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
             <div className="flex justify-between items-center">
               <span className="text-xs font-black uppercase tracking-widest text-slate-400">Grand Total Invoice:</span>
               <span className="text-2xl font-black text-slate-900 dark:text-white">
-                Rs. {currentTotal.toLocaleString()}
+                Rs. {formatAmount(currentTotal)}
                 <span className="text-xs text-slate-400 font-bold ml-2">({modalGrandQty} items)</span>
               </span>
             </div>
@@ -487,7 +509,7 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
               <div className="flex justify-between items-center text-xs font-black uppercase tracking-wider">
                 <span className="text-slate-400">Payment Status:</span>
                 <span className={currentLeft === 0 && currentTotal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
-                  {currentLeft === 0 && currentTotal > 0 ? "✅ Fully Paid (0 Left)" : `⚠️ Credit / Left: Rs. ${currentLeft.toLocaleString()}`}
+                  {currentLeft === 0 && currentTotal > 0 ? "✅ Fully Paid (0 Left)" : `⚠️ Credit / Left: Rs. ${formatAmount(currentLeft)}`}
                 </span>
               </div>
 
@@ -507,15 +529,15 @@ const AddSaleModal: React.FC<AddSaleModalProps> = ({ isOpen, onClose, initialPro
               <div className="grid grid-cols-3 gap-2 text-center pt-2">
                 <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                   <p className="text-[10px] text-slate-400 font-bold uppercase">Total Bill</p>
-                  <p className="text-sm font-black text-slate-800 dark:text-white">Rs. {currentTotal.toLocaleString()}</p>
+                  <p className="text-sm font-black text-slate-800 dark:text-white">Rs. {formatAmount(currentTotal)}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
                   <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">Paid</p>
-                  <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">Rs. {currentPaid.toLocaleString()}</p>
+                  <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">Rs. {formatAmount(currentPaid)}</p>
                 </div>
                 <div className={`p-3 bg-white dark:bg-slate-800 rounded-2xl border ${currentLeft > 0 ? 'border-rose-200 dark:border-rose-900/30' : 'border-slate-100 dark:border-slate-700'}`}>
                   <p className={`text-[10px] font-bold uppercase ${currentLeft > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>Left</p>
-                  <p className={`text-sm font-black ${currentLeft > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>Rs. {currentLeft.toLocaleString()}</p>
+                  <p className={`text-sm font-black ${currentLeft > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>Rs. {formatAmount(currentLeft)}</p>
                 </div>
               </div>
             </div>

@@ -44,7 +44,7 @@ npm run dev
 ```
 DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
 SECRET_KEY=<your-secret-key>
-ACCESS_TOKEN_EXPIRE_MINUTES=10080
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
 ### Frontend (Vercel dashboard)

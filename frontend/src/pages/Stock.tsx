@@ -4,7 +4,7 @@ import { useData } from '../context/DataContext';
 import { Layers, Plus, Search, AlertCircle, ArrowUpRight, X, History, ClipboardList, Building2, Trash2, Eye, EyeOff, TrendingUp, Edit2 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatAmount } from '../utils/formatters';
 
 const StockPage: React.FC = () => {
   const { products, stocks, stockTransactions, companies, addStock, deleteStockTransaction, updateStockTransaction } = useData();
@@ -402,9 +402,9 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">Purchase Cost</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                Rs. {maskAmount(stockSummary.totalCost.toLocaleString())}
+                Rs. {formatAmount(maskAmount(stockSummary.totalCost))}
               </p>
-              <p className="text-[11px] text-slate-400 font-medium mt-1">Capital invested across {stockSummary.totalItems.toLocaleString()} units</p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">Capital invested across {formatAmount(stockSummary.totalItems)} units</p>
             </div>
 
             <div className="bg-gradient-to-br from-purple-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-purple-100 dark:border-purple-900/30">
@@ -413,7 +413,7 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">Retail MRP</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                Rs. {maskAmount(stockSummary.totalMrp.toLocaleString())}
+                Rs. {formatAmount(maskAmount(stockSummary.totalMrp))}
               </p>
               <p className="text-[11px] text-slate-400 font-medium mt-1">Total revenue if all sold at printed MRP</p>
             </div>
@@ -424,7 +424,7 @@ const StockPage: React.FC = () => {
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">+{stockSummary.marginPct}% Margin</span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
-                {amountsVisible ? `+Rs. ${stockSummary.profit.toLocaleString()}` : 'Rs. ******'}
+                {amountsVisible ? `+Rs. ${formatAmount(stockSummary.profit)}` : 'Rs. ******'}
               </p>
               <p className="text-[11px] text-slate-400 font-medium mt-1">Gross profit margin if sold at MRP</p>
             </div>
@@ -464,12 +464,12 @@ const StockPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <span className={`font-black text-xl ${isCritical ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {remaining.toLocaleString()}
+                          {formatAmount(remaining)}
                         </span>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-slate-900 dark:text-white text-sm">
-                          Rs. {maskAmount(cost.toLocaleString())}
+                          Rs. {formatAmount(maskAmount(cost))}
                         </p>
                         {amountsVisible && product.companyDiscount && product.companyDiscount > 0 ? (
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
@@ -479,22 +479,22 @@ const StockPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-purple-600 dark:text-purple-400 text-sm">
-                          Rs. {maskAmount(mrp.toLocaleString())}
+                          Rs. {formatAmount(maskAmount(mrp))}
                         </p>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-black text-blue-600 dark:text-blue-400 text-sm">
-                          Rs. {maskAmount(totalCost.toLocaleString())}
+                          Rs. {formatAmount(maskAmount(totalCost))}
                         </p>
                         <p className="text-[10px] text-slate-400 font-semibold">Invested capital</p>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-black text-slate-900 dark:text-white text-sm">
-                          Rs. {maskAmount(totalMrp.toLocaleString())}
+                          Rs. {formatAmount(maskAmount(totalMrp))}
                         </p>
                         {diff > 0 && remaining > 0 && amountsVisible ? (
                           <p className="text-[10px] text-emerald-600 font-bold">
-                            +{diff.toLocaleString()} profit
+                            +{formatAmount(diff)} profit
                           </p>
                         ) : null}
                       </td>
@@ -551,7 +551,7 @@ const StockPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-8 py-6 italic font-black text-slate-900 dark:text-white">
-                        Rs. {maskAmount(transaction.purchasePrice.toLocaleString())}
+                        Rs. {formatAmount(maskAmount(transaction.purchasePrice))}
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -759,7 +759,7 @@ const StockPage: React.FC = () => {
                       </p>
                       {calculatedPurchaseCost !== null && mrp && discount && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                          Rs. {parseFloat(mrp).toLocaleString()} − {parseFloat(discount)}%
+                          Rs. {formatAmount(parseFloat(mrp))} − {parseFloat(discount)}%
                         </p>
                       )}
                     </div>
@@ -939,7 +939,7 @@ const StockPage: React.FC = () => {
                       </p>
                       {calculatedEditPurchaseCost !== null && editModal.mrp && editModal.discount && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                          Rs. {parseFloat(editModal.mrp).toLocaleString()} − {parseFloat(editModal.discount)}%
+                          Rs. {formatAmount(parseFloat(editModal.mrp))} − {parseFloat(editModal.discount)}%
                         </p>
                       )}
                     </div>

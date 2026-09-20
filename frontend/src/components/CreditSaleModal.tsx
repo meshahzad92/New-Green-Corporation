@@ -18,6 +18,7 @@ import {
   Banknote,
   Landmark
 } from 'lucide-react';
+import { formatAmount } from '../utils/formatters';
 
 interface CreditSaleItem {
   id: string;
@@ -409,7 +410,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                   <option value="" disabled>-- Select Dealer / Officer --</option>
                   {dealers.map(d => (
                     <option key={d.id} value={d.id}>
-                      {d.name} {d.phone ? `(${d.phone})` : ''} - [Balance Left: Rs. {d.total_left.toLocaleString()}]
+                      {d.name} {d.phone ? `(${d.phone})` : ''} - [Balance Left: Rs. {formatAmount(d.total_left)}]
                     </option>
                   ))}
                 </select>
@@ -591,7 +592,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
 
                         {/* Rate preview */}
                         <div className="text-right text-[11px] text-slate-400 font-medium">
-                          Rate: Rs. {parseFloat(item.price).toLocaleString()} / unit
+                          Rate: Rs. {formatAmount(parseFloat(item.price))} / unit
                         </div>
                       </div>
                     );
@@ -617,7 +618,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                   <span className="text-xs text-slate-500 font-bold">Will be added to Dealer dues</span>
                 </div>
                 <span className="text-2xl font-black text-rose-700 dark:text-rose-300">
-                  Rs. {grandTotalCredit.toLocaleString()}
+                  Rs. {formatAmount(grandTotalCredit)}
                 </span>
               </div>
             </>
@@ -769,12 +770,13 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
               ) : activeTab === 'credit' ? (
                 <>
                   <CreditCard className="w-5 h-5" />
-                  Save Credit Sale (Rs. {grandTotalCredit.toLocaleString()})
+                  Save Credit Sale (Rs. {formatAmount(grandTotalCredit)})
                 </>
               ) : (
                 <>
                   <Wallet className="w-5 h-5" />
-                  Save Recovery (Rs. {parseFloat(recoveryAmount || '0').toLocaleString()})
+                  Save Recovery (Rs. {formatAmount(parseFloat(recoveryAmount || '0'))})
+
                 </>
               )}
             </button>

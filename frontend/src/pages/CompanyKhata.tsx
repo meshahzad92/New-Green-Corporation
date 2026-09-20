@@ -25,6 +25,7 @@ import CompanyPaymentModal from '../components/CompanyPaymentModal';
 import CompanyPurchaseModal from '../components/CompanyPurchaseModal';
 import AddCompanyAccountModal from '../components/AddCompanyAccountModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatAmount } from '../utils/formatters';
 
 const CompanyKhata: React.FC = () => {
   const navigate = useNavigate();
@@ -230,7 +231,7 @@ const CompanyKhata: React.FC = () => {
               Total Amount Paid Out
             </p>
             <h3 className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300">
-              Rs. {metrics.totalPaid.toLocaleString()}
+              Rs. {formatAmount(metrics.totalPaid)}
             </h3>
             <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold mt-1">
               Advances & bank transfers
@@ -248,7 +249,7 @@ const CompanyKhata: React.FC = () => {
               Total Stock Received
             </p>
             <h3 className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300">
-              Rs. {metrics.totalPurchased.toLocaleString()}
+              Rs. {formatAmount(metrics.totalPurchased)}
             </h3>
             <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-bold mt-1">
               Inward shipment value
@@ -267,7 +268,7 @@ const CompanyKhata: React.FC = () => {
                 Net Advance with Companies
               </p>
               <h3 className="text-2xl sm:text-3xl font-black">
-                Rs. {metrics.netOverall.toLocaleString()}
+                Rs. {formatAmount(metrics.netOverall)}
               </h3>
               <p className="text-xs text-emerald-100 font-bold mt-1">Our advance balance safe</p>
             </div>
@@ -282,7 +283,7 @@ const CompanyKhata: React.FC = () => {
                 Net Payable to Companies
               </p>
               <h3 className="text-2xl sm:text-3xl font-black">
-                Rs. {Math.abs(metrics.netOverall).toLocaleString()}
+                Rs. {formatAmount(Math.abs(metrics.netOverall))}
               </h3>
               <p className="text-xs text-rose-100 font-bold mt-1">Dues pending for products</p>
             </div>
@@ -465,12 +466,12 @@ const CompanyKhata: React.FC = () => {
 
                       {/* Total Paid */}
                       <td className="py-4 px-6 text-right font-black text-sm text-emerald-600 dark:text-emerald-400">
-                        Rs. {paidNum.toLocaleString()}
+                        Rs. {formatAmount(paidNum)}
                       </td>
 
                       {/* Stock Received */}
                       <td className="py-4 px-6 text-right font-black text-sm text-blue-600 dark:text-blue-400">
-                        Rs. {purchNum.toLocaleString()}
+                        Rs. {formatAmount(purchNum)}
                       </td>
 
                       {/* Net Balance Badge */}
@@ -478,13 +479,13 @@ const CompanyKhata: React.FC = () => {
                         {isAdvance && (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            + Advance: Rs. {netNum.toLocaleString()}
+                            + Advance: Rs. {formatAmount(netNum)}
                           </span>
                         )}
                         {isPayable && (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40">
                             <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                            - Payable: Rs. {Math.abs(netNum).toLocaleString()}
+                            - Payable: Rs. {formatAmount(Math.abs(netNum))}
                           </span>
                         )}
                         {isSettled && (
@@ -583,13 +584,13 @@ const CompanyKhata: React.FC = () => {
                     <div>
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Paid Out</span>
                       <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                        Rs. {paidNum.toLocaleString()}
+                        Rs. {formatAmount(paidNum)}
                       </p>
                     </div>
                     <div>
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Stock In</span>
                       <p className="text-sm font-black text-blue-600 dark:text-blue-400">
-                        Rs. {purchNum.toLocaleString()}
+                        Rs. {formatAmount(purchNum)}
                       </p>
                     </div>
                   </div>
@@ -600,7 +601,7 @@ const CompanyKhata: React.FC = () => {
                       <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/30 rounded-2xl flex items-center justify-between">
                         <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Advance Available:</span>
                         <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
-                          Rs. {netNum.toLocaleString()}
+                          Rs. {formatAmount(netNum)}
                         </span>
                       </div>
                     )}
@@ -608,7 +609,7 @@ const CompanyKhata: React.FC = () => {
                       <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/30 rounded-2xl flex items-center justify-between">
                         <span className="text-xs font-bold text-rose-700 dark:text-rose-300">Payable Dues:</span>
                         <span className="text-sm font-black text-rose-700 dark:text-rose-300">
-                          Rs. {Math.abs(netNum).toLocaleString()}
+                          Rs. {formatAmount(Math.abs(netNum))}
                         </span>
                       </div>
                     )}

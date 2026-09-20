@@ -168,6 +168,7 @@ def export_database_backup(
             "id": str(d.id),
             "name": d.name,
             "phone": d.phone,
+            "address": d.address,
             "role": d.role,
             "created_at": to_iso(d.created_at),
             "is_deleted": bool(d.is_deleted),
@@ -509,6 +510,7 @@ def import_database_backup(
             if existing:
                 existing.name = d.get("name", existing.name)
                 existing.phone = d.get("phone", existing.phone)
+                existing.address = d.get("address", existing.address)
                 existing.role = d.get("role", existing.role)
                 existing.is_deleted = bool(d.get("is_deleted", False))
                 existing.deleted_at = parse_dt(d.get("deleted_at"))
@@ -517,6 +519,7 @@ def import_database_backup(
                     id=d_id,
                     name=d.get("name", "Unnamed Dealer"),
                     phone=d.get("phone"),
+                    address=d.get("address"),
                     role=d.get("role", "Dealer"),
                     created_at=parse_dt(d.get("created_at")) or datetime.utcnow(),
                     is_deleted=bool(d.get("is_deleted", False)),

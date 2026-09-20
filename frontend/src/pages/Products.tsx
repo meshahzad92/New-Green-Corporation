@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { Plus, Edit2, Trash2, Package, Search, Building2, X, ChevronRight, AlertCircle } from 'lucide-react';
 import { Product } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatAmount } from '../utils/formatters';
 
 const Products: React.FC = () => {
   const { companies, products, stocks, stockTransactions, sales, addProduct, updateProduct, deleteProduct } = useData();
@@ -309,9 +310,9 @@ const Products: React.FC = () => {
                             <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-md font-black uppercase">{product.category}</span>
                             {product.purchasePrice > 0 && (
                               <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                                Cost: Rs. {product.purchasePrice.toLocaleString()}
+                                Cost: Rs. {formatAmount(product.purchasePrice)}
                                 {product.mrp && product.mrp > 0 && product.companyDiscount && product.companyDiscount > 0 && (
-                                  <span className="text-slate-400 font-normal"> (MRP Rs. {product.mrp.toLocaleString()} − {product.companyDiscount}%)</span>
+                                  <span className="text-slate-400 font-normal"> (MRP Rs. {formatAmount(product.mrp)} − {product.companyDiscount}%)</span>
                                 )}
                               </span>
                             )}

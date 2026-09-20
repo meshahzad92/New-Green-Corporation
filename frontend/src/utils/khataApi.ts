@@ -12,6 +12,7 @@ export interface KhataAccount {
   id: string;
   name: string;
   phone?: string;
+  address?: string;
   role: string;
   total_credit: number;
   total_recovery: number;
@@ -23,6 +24,7 @@ export interface KhataAccount {
 export interface KhataAccountCreate {
   name: string;
   phone?: string;
+  address?: string;
   role?: string;
 }
 
@@ -58,6 +60,14 @@ export interface KhataRecoveryCreate {
   amount: number;
   payment_method?: 'CASH' | 'ONLINE';
   bank_name?: string;
+  remarks?: string;
+}
+
+export interface KhataManualCreditCreate {
+  dealer_id: string;
+  entry_date?: string;
+  amount: number;
+  person_name?: string;
   remarks?: string;
 }
 
@@ -102,6 +112,11 @@ export const khataService = {
     return response.data;
   },
 
+  createManualCredit: async (data: KhataManualCreditCreate): Promise<KhataEntry> => {
+    const response = await api.post('/khata/manual-credit', data);
+    return response.data;
+  },
+
   updateEntry: async (entryId: string, data: Partial<KhataEntry>): Promise<KhataEntry> => {
     const response = await api.put(`/khata/entries/${entryId}`, data);
     return response.data;
@@ -112,3 +127,4 @@ export const khataService = {
     return response.data;
   }
 };
+

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { formatDate, toISODateString } from '../utils/formatters';
+import { formatDate, formatAmount, toISODateString } from '../utils/formatters';
 
 const ExpensesPage: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -343,7 +343,7 @@ const ExpensesPage: React.FC = () => {
               {viewMode === 'date' ? 'Daily Expenses (Out)' : 'Total Expenses (Out)'}
             </span>
             <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
-              Rs. {totalExpenses.toLocaleString()}
+              Rs. {formatAmount(totalExpenses)}
             </div>
             <span className="text-[11px] font-semibold text-rose-500/80 flex items-center gap-1 mt-1">
               <ArrowDownRight className="w-3.5 h-3.5" /> Money Paid Out
@@ -361,7 +361,7 @@ const ExpensesPage: React.FC = () => {
               {viewMode === 'date' ? 'Daily Income (In)' : 'Total Income (In)'}
             </span>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-              Rs. {totalIncome.toLocaleString()}
+              Rs. {formatAmount(totalIncome)}
             </div>
             <span className="text-[11px] font-semibold text-emerald-500/80 flex items-center gap-1 mt-1">
               <ArrowUpRight className="w-3.5 h-3.5" /> Gifts / Reimbursements
@@ -385,7 +385,7 @@ const ExpensesPage: React.FC = () => {
                   : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              {netTotal >= 0 ? '+' : '-'}Rs. {Math.abs(netTotal).toLocaleString()}
+              {netTotal >= 0 ? '+' : '-'}Rs. {formatAmount(Math.abs(netTotal))}
             </div>
             <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mt-1">
               <Wallet className="w-3.5 h-3.5" />
@@ -706,7 +706,7 @@ const ExpensesPage: React.FC = () => {
                               : 'text-emerald-600 dark:text-emerald-400'
                           }`}
                         >
-                          {isExpense ? '-' : '+'}Rs. {absAmt.toLocaleString()}
+                          {isExpense ? '-' : '+'}Rs. {formatAmount(absAmt)}
                         </span>
                       </td>
 

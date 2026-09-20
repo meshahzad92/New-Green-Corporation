@@ -5,6 +5,7 @@ import StatCard from '../components/StatCard';
 import { Building2, Package, TrendingUp, DollarSign, Banknote, CreditCard, Wallet, Loader2, ShoppingCart, TrendingDown, Eye, EyeOff } from 'lucide-react';
 import api from '../utils/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { formatAmount } from '../utils/formatters';
 
 const Dashboard: React.FC = () => {
   const { products, sales, loading: dataLoading } = useData();
@@ -117,28 +118,28 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="Total Sales Today"
-          value={maskAmount(`Rs. ${Number(stats.today_sales_revenue || 0).toLocaleString()}`)}
+          value={maskAmount(`Rs. ${formatAmount(Number(stats.today_sales_revenue || 0))}`)}
           icon={ShoppingCart}
           color="blue"
           trend="Today's revenue"
         />
         <StatCard
           label="Sales Profit"
-          value={maskAmount(`Rs. ${Number(stats.today_sales_profit || 0).toLocaleString()}`)}
+          value={maskAmount(`Rs. ${formatAmount(Number(stats.today_sales_profit || 0))}`)}
           icon={DollarSign}
           color="green"
           trend="From sales"
         />
         <StatCard
           label="Total Expense"
-          value={maskAmount(`Rs. ${Number(stats.total_expense || 0).toLocaleString()}`)}
+          value={maskAmount(`Rs. ${formatAmount(Number(stats.total_expense || 0))}`)}
           icon={TrendingDown}
           color={Number(stats.total_expense || 0) >= 0 ? "green" : "red"}
           trend={Number(stats.total_expense || 0) >= 0 ? "Net income" : "Net expense"}
         />
         <StatCard
           label="Net Profit"
-          value={maskAmount(`Rs. ${Number(stats.net_profit || 0).toLocaleString()}`)}
+          value={maskAmount(`Rs. ${formatAmount(Number(stats.net_profit || 0))}`)}
           icon={TrendingUp}
           color={Number(stats.net_profit || 0) >= 0 ? "green" : "red"}
           trend="After expenses"
@@ -149,14 +150,14 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           label="Credit (Pending)"
-          value={maskAmount(`Rs. ${totalCredit.toLocaleString()}`)}
+          value={maskAmount(`Rs. ${formatAmount(totalCredit)}`)}
           icon={CreditCard}
           color="red"
           trend="To be received"
         />
         <StatCard
           label="Debit (Cash)"
-          value={maskAmount(`Rs. ${totalDebit.toLocaleString()}`)}
+          value={maskAmount(`Rs. ${formatAmount(totalDebit)}`)}
           icon={Wallet}
           color="blue"
           trend="Received"
@@ -189,7 +190,7 @@ const Dashboard: React.FC = () => {
               <YAxis
                 stroke="#64748b"
                 style={{ fontSize: '12px', fontWeight: 600 }}
-                tickFormatter={(value) => `Rs. ${value.toLocaleString()}`}
+                tickFormatter={(value) => `Rs. ${formatAmount(value)}`}
               />
               <Tooltip
                 contentStyle={{
@@ -198,7 +199,7 @@ const Dashboard: React.FC = () => {
                   borderRadius: '12px',
                   color: 'white'
                 }}
-                formatter={(value: any) => [`Rs. ${value.toLocaleString()}`, 'Sales']}
+                formatter={(value: any) => [`Rs. ${formatAmount(value)}`, 'Sales']}
               />
               <Line
                 type="monotone"
@@ -238,7 +239,7 @@ const Dashboard: React.FC = () => {
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
-                Rs. {maskRaw(Number(stats.total_inventory_value || 0).toLocaleString())}
+                Rs. {maskRaw(formatAmount(Number(stats.total_inventory_value || 0)))}
               </p>
               <p className="text-[11px] font-medium text-slate-400 mt-0.5">Actual capital locked in current stock</p>
             </div>
@@ -252,7 +253,7 @@ const Dashboard: React.FC = () => {
                 </span>
               </div>
               <p className="text-xl sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
-                Rs. {maskRaw(Number(stats.total_inventory_mrp_value || stats.total_inventory_value || 0).toLocaleString())}
+                Rs. {maskRaw(formatAmount(Number(stats.total_inventory_mrp_value || stats.total_inventory_value || 0)))}
               </p>
               <p className="text-[11px] font-medium text-slate-400 mt-0.5">Total money if sold at printed MRP</p>
             </div>
@@ -267,7 +268,7 @@ const Dashboard: React.FC = () => {
               </div>
               <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
                 {amountsVisible
-                  ? `+Rs. ${Number(stats.projected_inventory_profit || (Number(stats.total_inventory_mrp_value || 0) - Number(stats.total_inventory_value || 0))).toLocaleString()}`
+                  ? `+Rs. ${formatAmount(Number(stats.projected_inventory_profit || (Number(stats.total_inventory_mrp_value || 0) - Number(stats.total_inventory_value || 0))))}`
                   : 'Rs. ••••••'}
               </p>
               <p className="text-[11px] font-medium text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
@@ -301,7 +302,7 @@ const Dashboard: React.FC = () => {
                   <tr key={sale.id} className="text-sm group transition-colors">
                     <td className="py-5 font-bold text-slate-900 dark:text-slate-100">{product?.name || 'Item'}</td>
                     <td className="py-5 text-slate-500">{sale.customerName}</td>
-                    <td className="py-5 font-black text-slate-900 dark:text-white">{maskAmount(`Rs. ${sale.totalAmount.toLocaleString()}`)}</td>
+                    <td className="py-5 font-black text-slate-900 dark:text-white">{maskAmount(`Rs. ${formatAmount(sale.totalAmount)}`)}</td>
                     <td className="py-5 text-right">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${sale.paymentType === 'Debit' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                         {sale.paymentType}

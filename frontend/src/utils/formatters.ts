@@ -29,3 +29,17 @@ export const toISODateString = (date: Date | string | number | null | undefined)
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * Formats a number as a comma-separated amount string.
+ * e.g. 123456 → "123,456"   |   82650.5 → "82,650.5"
+ * Uses en-US locale for consistent comma thousands separator.
+ */
+export const formatAmount = (value: number | string | null | undefined): string => {
+  const num = parseFloat(String(value ?? 0));
+  if (isNaN(num)) return '0';
+  // Remove trailing zeros after decimal, keep up to 2 decimal places if needed
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+};

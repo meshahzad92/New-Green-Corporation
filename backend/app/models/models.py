@@ -119,6 +119,7 @@ class KhataAccount(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False)
     phone = Column(String(20), nullable=True)
+    address = Column(Text, nullable=True)
     role = Column(Text, default="Dealer", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_deleted = Column(Boolean, default=False, nullable=False)

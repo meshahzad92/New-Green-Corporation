@@ -29,7 +29,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import CompanyPaymentModal from '../components/CompanyPaymentModal';
 import CompanyPurchaseModal from '../components/CompanyPurchaseModal';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatAmount } from '../utils/formatters';
 
 const CompanyKhataDetail: React.FC = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -269,7 +269,7 @@ const CompanyKhataDetail: React.FC = () => {
               Total Amount Paid
             </p>
             <h3 className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300">
-              Rs. {(Number(ledgerData.total_paid) || 0).toLocaleString()}
+              Rs. {(Number(ledgerData.total_paid) || formatAmount(0))}
             </h3>
             <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold mt-1">
               Advances & bank payments
@@ -287,7 +287,7 @@ const CompanyKhataDetail: React.FC = () => {
               Total Stock Received
             </p>
             <h3 className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300">
-              Rs. {(Number(ledgerData.total_purchased) || 0).toLocaleString()}
+              Rs. {(Number(ledgerData.total_purchased) || formatAmount(0))}
             </h3>
             <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-bold mt-1">
               Inward bill value
@@ -306,7 +306,7 @@ const CompanyKhataDetail: React.FC = () => {
                 Advance Balance with Company
               </p>
               <h3 className="text-2xl sm:text-3xl font-black">
-                Rs. {(Number(ledgerData.net_balance) || 0).toLocaleString()}
+                Rs. {(Number(ledgerData.net_balance) || formatAmount(0))}
               </h3>
               <p className="text-xs text-emerald-100 font-bold mt-1">
                 Our money available with company
@@ -325,7 +325,8 @@ const CompanyKhataDetail: React.FC = () => {
                 Payable Dues to Company
               </p>
               <h3 className="text-2xl sm:text-3xl font-black">
-                Rs. {Math.abs(Number(ledgerData.net_balance) || 0).toLocaleString()}
+                Rs. {formatAmount(Math.abs(Number(ledgerData.net_balance) || 0))}
+
               </h3>
               <p className="text-xs text-rose-100 font-bold mt-1">
                 Pending dues for received stock
@@ -498,11 +499,11 @@ const CompanyKhataDetail: React.FC = () => {
                                     </span>
                                     {item.unit_price && (
                                       <span className="text-blue-600 dark:text-blue-400 font-semibold text-[11px]">
-                                        (@ Rs. {Number(item.unit_price).toLocaleString()})
+                                        (@ Rs. {formatAmount(Number(item.unit_price))})
                                       </span>
                                     )}
                                     <span className="font-bold text-slate-900 dark:text-white">
-                                      = Rs. {Number(item.total_price).toLocaleString()}
+                                      = Rs. {formatAmount(Number(item.total_price))}
                                     </span>
                                   </div>
                                 ))}
@@ -523,7 +524,7 @@ const CompanyKhataDetail: React.FC = () => {
                       <td className="py-4 px-6 text-right whitespace-nowrap">
                         {isPayment ? (
                           <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
-                            Rs. {entry.amount_paid.toLocaleString()}
+                            Rs. {formatAmount(entry.amount_paid)}
                           </span>
                         ) : (
                           <span className="text-slate-300 dark:text-slate-600 font-mono">-</span>
@@ -534,7 +535,7 @@ const CompanyKhataDetail: React.FC = () => {
                       <td className="py-4 px-6 text-right whitespace-nowrap">
                         {isPurchase ? (
                           <span className="font-black text-sm text-blue-600 dark:text-blue-400">
-                            Rs. {entry.total_purchase_amount.toLocaleString()}
+                            Rs. {formatAmount(entry.total_purchase_amount)}
                           </span>
                         ) : (
                           <span className="text-slate-300 dark:text-slate-600 font-mono">-</span>
@@ -545,12 +546,12 @@ const CompanyKhataDetail: React.FC = () => {
                       <td className="py-4 px-6 text-right whitespace-nowrap font-black text-sm">
                         {runBalIsAdvance && (
                           <span className="text-emerald-600 dark:text-emerald-400">
-                            + Advance: Rs. {runBal.toLocaleString()}
+                            + Advance: Rs. {formatAmount(runBal)}
                           </span>
                         )}
                         {runBalIsPayable && (
                           <span className="text-rose-600 dark:text-rose-400">
-                            - Payable: Rs. {Math.abs(runBal).toLocaleString()}
+                            - Payable: Rs. {formatAmount(Math.abs(runBal))}
                           </span>
                         )}
                         {!runBalIsAdvance && !runBalIsPayable && (

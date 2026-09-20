@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List
 import os
+import secrets
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AgriManage Pro"
@@ -12,7 +13,8 @@ class Settings(BaseSettings):
     # Security Settings - MUST be set in production .env
     SECRET_KEY: str = os.getenv("SECRET_KEY", "CHANGE-THIS-IN-PRODUCTION-INSECURE-DEFAULT")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 1 week default
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+    SIGNUP_ENABLED: bool = os.getenv("SIGNUP_ENABLED", "false").lower() in ("1", "true", "yes", "on")
     
     # API Configuration
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
@@ -38,4 +40,12 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+if not settings.SECRET_KEY or secrets.compare_digest(
+    settings.SECRET_KEY, "CHANGE-THIS-IN-PRODUCTION-INSECURE-DEFAULT"
+):
+    raise RuntimeError("SECRET_KEY must be set to a strong, unique value before starting the API.")
+
+if settings.ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+    raise RuntimeError("ACCESS_TOKEN_EXPIRE_MINUTES must be greater than 0.")
 

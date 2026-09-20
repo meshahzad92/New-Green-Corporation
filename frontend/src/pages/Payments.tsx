@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Wallet, Search, User, TrendingDown, TrendingUp, Edit } from 'lucide-react';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatAmount } from '../utils/formatters';
 
 interface CustomerPayment {
     customerName: string;
@@ -94,8 +94,8 @@ const PaymentsPage: React.FC = () => {
         }
 
         const message = type === 'received'
-            ? `Customer paid Rs. ${parseFloat(adjustmentModal.amount).toLocaleString()}`
-            : `Given additional credit of Rs. ${parseFloat(adjustmentModal.amount).toLocaleString()}`;
+            ? `Customer paid Rs. ${formatAmount(parseFloat(adjustmentModal.amount))}`
+            : `Given additional credit of Rs. ${formatAmount(parseFloat(adjustmentModal.amount))}`;
 
         alert(`${message}\n\nThis feature will be fully implemented soon!`);
         setAdjustmentModal({ isOpen: false, customerName: '', currentOutstanding: 0, amount: '', notes: '' });
@@ -124,7 +124,7 @@ const PaymentsPage: React.FC = () => {
                             Total Outstanding
                         </span>
                     </div>
-                    <div className="text-4xl font-black">Rs. {totalOutstanding.toLocaleString()}</div>
+                    <div className="text-4xl font-black">Rs. {formatAmount(totalOutstanding)}</div>
                     <div className="mt-3 text-sm opacity-90">{customersWithDebt} customers with debt</div>
                 </div>
 
@@ -135,7 +135,7 @@ const PaymentsPage: React.FC = () => {
                             Total Collected
                         </span>
                     </div>
-                    <div className="text-4xl font-black">Rs. {totalPaid.toLocaleString()}</div>
+                    <div className="text-4xl font-black">Rs. {formatAmount(totalPaid)}</div>
                     <div className="mt-3 text-sm opacity-90">All-time payments</div>
                 </div>
 
@@ -248,10 +248,10 @@ const PaymentsPage: React.FC = () => {
                                         {customer.customerPhone || '-'}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-rose-600">
-                                        Rs. {customer.totalCredit.toLocaleString()}
+                                        Rs. {formatAmount(customer.totalCredit)}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-emerald-600">
-                                        Rs. {customer.totalPaid.toLocaleString()}
+                                        Rs. {formatAmount(customer.totalPaid)}
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         <span className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm ${customer.outstanding > 0
@@ -260,7 +260,7 @@ const PaymentsPage: React.FC = () => {
                                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                                 : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                                             }`}>
-                                            Rs. {Math.abs(customer.outstanding).toLocaleString()}
+                                            Rs. {formatAmount(Math.abs(customer.outstanding))}
                                             {customer.outstanding < 0 && ' (Overpaid)'}
                                         </span>
                                     </td>
@@ -313,7 +313,7 @@ const PaymentsPage: React.FC = () => {
                         <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-6 mb-6">
                             <div className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase mb-2">Current Outstanding</div>
                             <div className={`text-3xl font-black ${adjustmentModal.currentOutstanding > 0 ? 'text-rose-600' : adjustmentModal.currentOutstanding < 0 ? 'text-emerald-600' : 'text-slate-600'}`}>
-                                Rs. {Math.abs(adjustmentModal.currentOutstanding).toLocaleString()}
+                                Rs. {formatAmount(Math.abs(adjustmentModal.currentOutstanding))}
                             </div>
                         </div>
 

@@ -1,28 +1,33 @@
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Pages
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Companies from './pages/Companies';
-import Products from './pages/Products';
-import ProductDetail from './pages/ProductDetail';
-import Stock from './pages/Stock';
-import Sales from './pages/Sales';
-import Expenses from './pages/Expenses';
-import Khata from './pages/Khata';
-import KhataDetail from './pages/KhataDetail';
-import Reports from './pages/Reports';
-import Notes from './pages/Notes';
-import Backup from './pages/Backup';
-import MoreHub from './pages/MoreHub';
-import CompanyKhata from './pages/CompanyKhata';
-import CompanyKhataDetail from './pages/CompanyKhataDetail';
+const Login = React.lazy(() => import('./pages/Login'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Companies = React.lazy(() => import('./pages/Companies'));
+const Products = React.lazy(() => import('./pages/Products'));
+const ProductDetail = React.lazy(() => import('./pages/ProductDetail'));
+const Stock = React.lazy(() => import('./pages/Stock'));
+const Sales = React.lazy(() => import('./pages/Sales'));
+const Expenses = React.lazy(() => import('./pages/Expenses'));
+const Khata = React.lazy(() => import('./pages/Khata'));
+const KhataDetail = React.lazy(() => import('./pages/KhataDetail'));
+const Reports = React.lazy(() => import('./pages/Reports'));
+const Notes = React.lazy(() => import('./pages/Notes'));
+const Backup = React.lazy(() => import('./pages/Backup'));
+const MoreHub = React.lazy(() => import('./pages/MoreHub'));
+const CompanyKhata = React.lazy(() => import('./pages/CompanyKhata'));
+const CompanyKhataDetail = React.lazy(() => import('./pages/CompanyKhataDetail'));
+
+const PageLoader: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400">
+    Loading...
+  </div>
+);
 
 const App: React.FC = () => {
   return (
@@ -30,26 +35,28 @@ const App: React.FC = () => {
       <AuthProvider>
         <DataProvider>
           <HashRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/companies" element={<Companies />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/products/:productId" element={<ProductDetail />} />
-                <Route path="/stock" element={<Stock />} />
-                <Route path="/sales" element={<Sales />} />
-                <Route path="/expenses" element={<Expenses />} />
-                <Route path="/khata" element={<Khata />} />
-                <Route path="/khata/:dealerId" element={<KhataDetail />} />
-                <Route path="/company-khata" element={<CompanyKhata />} />
-                <Route path="/company-khata/:companyId" element={<CompanyKhataDetail />} />
-                <Route path="/more" element={<MoreHub />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/notes" element={<Notes />} />
-                <Route path="/backup" element={<Backup />} />
-              </Route>
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/companies" element={<Companies />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/products/:productId" element={<ProductDetail />} />
+                  <Route path="/stock" element={<Stock />} />
+                  <Route path="/sales" element={<Sales />} />
+                  <Route path="/expenses" element={<Expenses />} />
+                  <Route path="/khata" element={<Khata />} />
+                  <Route path="/khata/:dealerId" element={<KhataDetail />} />
+                  <Route path="/company-khata" element={<CompanyKhata />} />
+                  <Route path="/company-khata/:companyId" element={<CompanyKhataDetail />} />
+                  <Route path="/more" element={<MoreHub />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/notes" element={<Notes />} />
+                  <Route path="/backup" element={<Backup />} />
+                </Route>
+              </Routes>
+            </Suspense>
           </HashRouter>
         </DataProvider>
       </AuthProvider>

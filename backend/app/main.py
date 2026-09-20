@@ -43,12 +43,14 @@ def startup_event():
                     id UUID PRIMARY KEY,
                     name TEXT NOT NULL,
                     phone VARCHAR(20),
+                    address TEXT,
                     role TEXT NOT NULL DEFAULT 'Dealer',
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
                     deleted_at TIMESTAMP WITH TIME ZONE
                 );
             """))
+            conn.execute(text("ALTER TABLE khata_accounts ADD COLUMN IF NOT EXISTS address TEXT;"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS khata_entries (
                     id UUID PRIMARY KEY,

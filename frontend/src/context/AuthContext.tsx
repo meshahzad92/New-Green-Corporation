@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../utils/api';
+import api, { getValidToken } from '../utils/api';
 
 interface AuthContextType {
   isLoggedIn: boolean;
@@ -11,8 +11,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return !!localStorage.getItem('token');
+    return !!getValidToken();
   });
+
+  useEffect(() => {
+    const syncAuthState = () => setIsLoggedIn(!!getValidToken());
+
+    window.addEventListener('storage', syncAuthState);
+    window.addEventListener('hashchange', syncAuthState);
+
+    return () => {
+      window.removeEventListener('storage', syncAuthState);
+      window.removeEventListener('hashchange', syncAuthState);
+    };
+  }, []);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {

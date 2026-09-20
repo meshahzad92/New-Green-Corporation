@@ -6,6 +6,7 @@ import { calculateProfit } from '../utils/calculations';
 import { Calendar, TrendingUp, Award, DollarSign, CreditCard, Wallet, ShoppingCart, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import api from '../utils/api';
 import CustomDatePicker from '../components/CustomDatePicker';
+import { formatAmount } from '../utils/formatters';
 
 type PeriodType = '1month' | '3months' | '6months' | '1year' | 'custom';
 
@@ -264,7 +265,7 @@ const Reports: React.FC = () => {
                 <ShoppingCart className="w-5 h-5" />
                 <h3 className="text-sm font-semibold opacity-90">Total Revenue</h3>
               </div>
-              <p className="text-3xl font-black">Rs. {periodSummary.sales_summary.total_revenue.toLocaleString()}</p>
+              <p className="text-3xl font-black">Rs. {formatAmount(periodSummary.sales_summary.total_revenue)}</p>
               <p className="text-sm opacity-80 mt-2">{periodSummary.sales_summary.total_sales_count} sales</p>
             </div>
 
@@ -274,7 +275,7 @@ const Reports: React.FC = () => {
                 <TrendingUp className="w-5 h-5" />
                 <h3 className="text-sm font-semibold opacity-90">Gross Profit</h3>
               </div>
-              <p className="text-3xl font-black">Rs. {periodSummary.sales_summary.gross_profit.toLocaleString()}</p>
+              <p className="text-3xl font-black">Rs. {formatAmount(periodSummary.sales_summary.gross_profit)}</p>
               <p className="text-sm opacity-80 mt-2">{periodSummary.sales_summary.profit_margin}% margin</p>
             </div>
 
@@ -284,7 +285,7 @@ const Reports: React.FC = () => {
                 <TrendingDown className="w-5 h-5" />
                 <h3 className="text-sm font-semibold opacity-90">Total Expenses</h3>
               </div>
-              <p className="text-3xl font-black">Rs. {periodSummary.expense_summary.total_expenses.toLocaleString()}</p>
+              <p className="text-3xl font-black">Rs. {formatAmount(periodSummary.expense_summary.total_expenses)}</p>
               <p className="text-sm opacity-80 mt-2">{periodSummary.expense_summary.expense_count} transactions</p>
             </div>
 
@@ -294,7 +295,7 @@ const Reports: React.FC = () => {
                 {periodSummary.overall.net_profit >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                 <h3 className="text-sm font-semibold opacity-90">Net Profit</h3>
               </div>
-              <p className="text-3xl font-black">Rs. {periodSummary.overall.net_profit.toLocaleString()}</p>
+              <p className="text-3xl font-black">Rs. {formatAmount(periodSummary.overall.net_profit)}</p>
               <p className="text-sm opacity-80 mt-2">After expenses</p>
             </div>
           </div>
@@ -311,11 +312,11 @@ const Reports: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                   <span className="font-semibold text-gray-700 dark:text-gray-300">Quantity Sold</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-400">{periodSummary.sales_summary.total_quantity_sold.toLocaleString()}</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-400">{formatAmount(periodSummary.sales_summary.total_quantity_sold)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
                   <span className="font-semibold text-gray-700 dark:text-gray-300">Cost of Goods</span>
-                  <span className="font-bold text-orange-600 dark:text-orange-400">Rs. {periodSummary.sales_summary.total_cost.toLocaleString()}</span>
+                  <span className="font-bold text-orange-600 dark:text-orange-400">Rs. {formatAmount(periodSummary.sales_summary.total_cost)}</span>
                 </div>
               </div>
             </div>
@@ -326,15 +327,15 @@ const Reports: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl">
                   <span className="font-semibold text-gray-700 dark:text-gray-300">Total Expenses</span>
-                  <span className="font-bold text-rose-600 dark:text-rose-400">Rs. {periodSummary.expense_summary.total_expenses.toLocaleString()}</span>
+                  <span className="font-bold text-rose-600 dark:text-rose-400">Rs. {formatAmount(periodSummary.expense_summary.total_expenses)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
                   <span className="font-semibold text-gray-700 dark:text-gray-300">Total Income</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {periodSummary.expense_summary.total_income.toLocaleString()}</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {formatAmount(periodSummary.expense_summary.total_income)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
                   <span className="font-semibold text-gray-700 dark:text-gray-300">Net Expense</span>
-                  <span className="font-bold text-indigo-600 dark:text-indigo-400">Rs. {periodSummary.expense_summary.net_expense.toLocaleString()}</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">Rs. {formatAmount(periodSummary.expense_summary.net_expense)}</span>
                 </div>
               </div>
             </div>
@@ -351,14 +352,14 @@ const Reports: React.FC = () => {
                     <span className="font-semibold text-gray-700 dark:text-gray-300">Credit Sales</span>
                     <p className="text-sm text-gray-500">{periodSummary.credit_debit.credit_count} transactions</p>
                   </div>
-                  <span className="font-bold text-indigo-600 dark:text-indigo-400">Rs. {periodSummary.credit_debit.total_credit.toLocaleString()}</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">Rs. {formatAmount(periodSummary.credit_debit.total_credit)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
                   <div>
                     <span className="font-semibold text-gray-700 dark:text-gray-300">Cash Sales</span>
                     <p className="text-sm text-gray-500">{periodSummary.credit_debit.cash_count} transactions</p>
                   </div>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {periodSummary.credit_debit.total_cash.toLocaleString()}</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {formatAmount(periodSummary.credit_debit.total_cash)}</span>
                 </div>
                 <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-xl text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Credit Percentage</p>
@@ -380,7 +381,7 @@ const Reports: React.FC = () => {
                     <XAxis dataKey="date" hide />
                     <YAxis hide />
                     <Tooltip
-                      formatter={(value: any) => `Rs. ${Number(value).toLocaleString()}`}
+                      formatter={(value: any) => `Rs. ${formatAmount(Number(value))}`}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                     <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} dot={false} />
@@ -406,7 +407,7 @@ const Reports: React.FC = () => {
                     <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
                     <Tooltip
                       cursor={{ fill: '#F9FAFB' }}
-                      formatter={(value: any) => value.toLocaleString()}
+                      formatter={(value: any) => formatAmount(value)}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                     <Bar dataKey="sales" fill="#10B981" radius={[0, 8, 8, 0]} barSize={20} />
@@ -436,7 +437,7 @@ const Reports: React.FC = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: any) => `Rs. ${Number(value).toLocaleString()}`}
+                      formatter={(value: any) => `Rs. ${formatAmount(Number(value))}`}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                   </PieChart>

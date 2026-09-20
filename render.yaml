@@ -10,4 +10,6 @@ services:
       - key: SECRET_KEY
         sync: false          # Set manually in Render dashboard → Environment
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: 10080         # 7 days
+        value: 60            # 1 hour
+      - key: SIGNUP_ENABLED
+        value: false

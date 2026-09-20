@@ -6,7 +6,7 @@ import { ArrowLeft, Package, ShoppingCart, Layers, Plus, TrendingUp, User, Build
 import ConfirmDialog from '../components/ConfirmDialog';
 import AddSaleModal from '../components/AddSaleModal';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatAmount } from '../utils/formatters';
 
 const ProductDetail: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -276,12 +276,12 @@ const ProductDetail: React.FC = () => {
         {/* Financial Position */}
         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 space-y-6 flex flex-col justify-center">
           <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Stock Valuation</p>
-          <h4 className="text-2xl md:text-3xl font-black text-blue-600 leading-none">Rs. {inventoryValuation.toLocaleString()}</h4>
+          <h4 className="text-2xl md:text-3xl font-black text-blue-600 leading-none">Rs. {formatAmount(inventoryValuation)}</h4>
           <div className="pt-4 border-t border-slate-100 dark:border-slate-700 space-y-2">
             {latestMrp !== undefined && latestMrp > 0 && (
               <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                 <span>MRP</span>
-                <span className="text-slate-900 dark:text-white font-black">Rs. {latestMrp.toLocaleString()}</span>
+                <span className="text-slate-900 dark:text-white font-black">Rs. {formatAmount(latestMrp)}</span>
               </div>
             )}
             {latestDiscount !== undefined && latestDiscount > 0 && (
@@ -293,7 +293,7 @@ const ProductDetail: React.FC = () => {
             {latestCost > 0 && (
               <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                 <span>Purchase Cost</span>
-                <span className="text-slate-900 dark:text-white font-black">Rs. {latestCost.toLocaleString()}</span>
+                <span className="text-slate-900 dark:text-white font-black">Rs. {formatAmount(latestCost)}</span>
               </div>
             )}
             <div className="flex justify-between items-center text-xs font-bold text-slate-500">
@@ -374,7 +374,7 @@ const ProductDetail: React.FC = () => {
                       )}
                     </td>
                     <td className="px-8 py-5 text-right font-black text-sm">
-                      Rs. {(isRefill ? (entry as any).purchasePrice : (entry as any).totalAmount).toLocaleString()}
+                      Rs. {formatAmount(isRefill ? (entry as any).purchasePrice : (entry as any).totalAmount)}
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -524,7 +524,7 @@ const ProductDetail: React.FC = () => {
                       </p>
                       {calculatedPurchaseCost !== null && addMrp && addDiscount && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                          Rs. {parseFloat(addMrp).toLocaleString()} − {parseFloat(addDiscount)}%
+                          Rs. {formatAmount(parseFloat(addMrp))} − {parseFloat(addDiscount)}%
                         </p>
                       )}
                     </div>
@@ -723,7 +723,7 @@ const ProductDetail: React.FC = () => {
                       </p>
                       {calculatedEditPurchaseCost !== null && editRefillModal.mrp && editRefillModal.discount && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                          Rs. {parseFloat(editRefillModal.mrp).toLocaleString()} − {parseFloat(editRefillModal.discount)}%
+                          Rs. {formatAmount(parseFloat(editRefillModal.mrp))} − {parseFloat(editRefillModal.discount)}%
                         </p>
                       )}
                     </div>

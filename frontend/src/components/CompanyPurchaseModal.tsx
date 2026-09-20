@@ -15,6 +15,7 @@ import {
 import CustomDatePicker from './CustomDatePicker';
 import { companyKhataService, CompanyKhataOverview } from '../utils/companyKhataApi';
 import { useData } from '../context/DataContext';
+import { formatAmount } from '../utils/formatters';
 
 interface LineItem {
   productId: string;
@@ -561,10 +562,10 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
                     {unitPrice && (
                       <div className="p-2.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/30 rounded-lg flex items-center justify-between text-xs">
                         <div className="text-gray-600 dark:text-gray-300">
-                          Unit Purchase Price: <span className="font-mono font-medium">Rs. {Number(totalNum).toLocaleString()} ÷ {qtyNum} units</span>
+                          Unit Purchase Price: <span className="font-mono font-medium">Rs. {formatAmount(Number(totalNum))} ÷ {qtyNum} units</span>
                         </div>
                         <div className="font-bold text-blue-700 dark:text-blue-400">
-                          = Rs. {Number(unitPrice).toLocaleString()} / {prod?.unit || 'unit'}
+                          = Rs. {formatAmount(Number(unitPrice))} / {prod?.unit || 'unit'}
                         </div>
                       </div>
                     )}
@@ -584,7 +585,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
             </div>
             <div className="text-right">
               <span className="text-2xl font-black text-blue-700 dark:text-blue-300">
-                Rs. {Number(grandTotal).toLocaleString()}
+                Rs. {formatAmount(Number(grandTotal))}
               </span>
             </div>
           </div>

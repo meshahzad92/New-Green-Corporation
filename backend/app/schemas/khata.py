@@ -8,6 +8,7 @@ from decimal import Decimal
 class KhataAccountBase(BaseModel):
     name: str = Field(..., min_length=1)
     phone: Optional[str] = None
+    address: Optional[str] = None
     role: Optional[str] = 'Dealer'
 
 class KhataAccountCreate(KhataAccountBase):
@@ -16,6 +17,7 @@ class KhataAccountCreate(KhataAccountBase):
 class KhataAccountUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    address: Optional[str] = None
     role: Optional[str] = None
 
 class KhataAccountResponse(KhataAccountBase):
@@ -95,4 +97,11 @@ class KhataRecoveryCreate(BaseModel):
     amount: Decimal = Field(..., gt=0)
     payment_method: Optional[Literal['CASH', 'ONLINE']] = 'CASH'
     bank_name: Optional[str] = None
+    remarks: Optional[str] = None
+
+class KhataManualCreditCreate(BaseModel):
+    dealer_id: UUID
+    entry_date: Optional[datetime] = None
+    amount: Decimal = Field(..., gt=0)
+    person_name: Optional[str] = None   # optional: who this credit relates to
     remarks: Optional[str] = None
