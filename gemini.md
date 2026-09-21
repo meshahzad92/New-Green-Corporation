@@ -539,11 +539,15 @@ To counteract Supabase cloud latency and accidental double-clicks:
 - **API Client**:
   - `frontend/src/utils/api.ts`: `MoneyAccount`, `MoneyTransaction`, `MoneyAccountLedger` TypeScript interfaces + full `moneyService` singleton.
 
-### 27. **Automatic HTTPS SSL with Caddy Reverse Proxy**
+### 27. **Automatic HTTPS SSL with Caddy Reverse Proxy & Backup Import FK Fix**
 - **Architecture**:
   - Added `backend/Caddyfile` configured to route `api.newgreencorporation.app` directly to `127.0.0.1:8000` (FastAPI backend).
   - Added `caddy:2-alpine` container in `backend/docker-compose.yml` with persistent volume storage for SSL certificate storage (`caddy_data` & `caddy_config`).
   - Automatic Let's Encrypt TLS certificate provisioning, HTTP->HTTPS auto-redirect, and zero-touch auto-renewals.
+- **Backup & Restore Foreign Key Resolution**:
+  - Fixed `ForeignKeyViolation` error on `company_khata_entries` during database import.
+  - Implemented automatic resolution and fallback creation of `CompanyKhataAccount` when importing historical legacy entries whose catalog `company_id` had not yet been assigned a explicit supplier account.
 - **Frontend & Deployment**:
   - Updated `frontend/src/utils/api.ts` fallback URL to `https://api.newgreencorporation.app/api/v1`.
   - Updated `.github/workflows/deploy-aws.yml` to include domain health checks (`https://api.newgreencorporation.app/api/v1/health`).
+
