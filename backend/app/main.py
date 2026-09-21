@@ -151,6 +151,25 @@ def startup_event():
                       )
                 );
             """))
+            # Safe cleanup of unreferenced duplicate companies with identical names
+            conn.execute(text("""
+                DELETE FROM companies c1
+                WHERE c1.id IN (
+                    SELECT c_sub.id FROM companies c_sub
+                    WHERE c_sub.id NOT IN (SELECT DISTINCT company_id FROM products WHERE company_id IS NOT NULL)
+                      AND c_sub.id NOT IN (SELECT DISTINCT catalog_company_id FROM company_khata_accounts WHERE catalog_company_id IS NOT NULL)
+                      AND c_sub.id NOT IN (SELECT DISTINCT company_id FROM company_khata_entries WHERE company_id IS NOT NULL)
+                      AND EXISTS (
+                          SELECT 1 FROM companies c_dup
+                          WHERE LOWER(TRIM(c_dup.name)) = LOWER(TRIM(c_sub.name))
+                            AND c_dup.id != c_sub.id
+                            AND (
+                                EXISTS (SELECT 1 FROM products WHERE company_id = c_dup.id)
+                                OR c_dup.id < c_sub.id
+                            )
+                      )
+                );
+            """))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS money_accounts (
                     id UUID PRIMARY KEY,

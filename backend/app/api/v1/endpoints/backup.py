@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 from datetime import datetime
@@ -347,38 +348,63 @@ def import_database_backup(
     }
 
     try:
-        # 1. Upsert Companies
+    company_id_map = {}
+    product_id_map = {}
+    dealer_id_map = {}
+    co_account_id_map = {}
+
+    try:
+        # 1. Upsert Companies (with Name & ID deduplication)
         for c in companies_raw:
             c_id = parse_uuid(c.get("id")) or uuid.uuid4()
+            c_name = (c.get("name") or "").strip()
+
             existing = db.query(Company).filter(Company.id == c_id).first()
+            if not existing and c_name:
+                existing = db.query(Company).filter(func.lower(func.trim(Company.name)) == c_name.lower()).first()
+
             if existing:
-                existing.name = c.get("name", existing.name)
-                existing.logo = c.get("logo", existing.logo)
+                company_id_map[c_id] = existing.id
+                existing.name = c_name or existing.name
+                if c.get("logo"):
+                    existing.logo = c.get("logo")
             else:
                 new_c = Company(
                     id=c_id,
-                    name=c.get("name", ""),
+                    name=c_name,
                     logo=c.get("logo"),
                     created_at=parse_dt(c.get("created_at")) or datetime.utcnow()
                 )
                 db.add(new_c)
+                company_id_map[c_id] = c_id
             imported_counts["companies"] += 1
 
         db.flush()
 
-        # 2. Upsert Products
+        # 2. Upsert Products (with Name, Company & ID deduplication)
         for p in products_raw:
             p_id = parse_uuid(p.get("id")) or uuid.uuid4()
-            comp_id = parse_uuid(p.get("company_id"))
+            raw_comp_id = parse_uuid(p.get("company_id"))
+            resolved_comp_id = company_id_map.get(raw_comp_id, raw_comp_id) if raw_comp_id else None
+            p_name = (p.get("name") or "").strip()
+
             existing = db.query(Product).filter(Product.id == p_id).first()
+            if not existing and p_name:
+                query = db.query(Product).filter(func.lower(func.trim(Product.name)) == p_name.lower())
+                if resolved_comp_id:
+                    query = query.filter(Product.company_id == resolved_comp_id)
+                existing = query.first()
+
             if existing:
-                existing.company_id = comp_id or existing.company_id
-                existing.name = p.get("name", existing.name)
+                product_id_map[p_id] = existing.id
+                if resolved_comp_id:
+                    existing.company_id = resolved_comp_id
+                existing.name = p_name or existing.name
                 existing.category = p.get("category", existing.category)
                 existing.unit = p.get("unit", existing.unit)
-                if p.get("purchase_price") is not None:
+                if p.get("purchase_price") is not None and float(p.get("purchase_price") or 0) > 0:
                     existing.purchase_price = Decimal(str(p["purchase_price"]))
-                if p.get("mrp") is not None:
+                if p.get("mrp") is not None and float(p.get("mrp") or 0) > 0:
                     existing.mrp = Decimal(str(p["mrp"]))
                 if p.get("company_discount") is not None:
                     existing.company_discount = Decimal(str(p["company_discount"]))
@@ -387,8 +413,8 @@ def import_database_backup(
             else:
                 new_p = Product(
                     id=p_id,
-                    company_id=comp_id,
-                    name=p.get("name", ""),
+                    company_id=resolved_comp_id,
+                    name=p_name,
                     category=p.get("category"),
                     unit=p.get("unit", "Bags"),
                     purchase_price=Decimal(str(p.get("purchase_price", 0) or 0)),
@@ -397,25 +423,34 @@ def import_database_backup(
                     min_stock=int(p.get("min_stock", 5) or 5)
                 )
                 db.add(new_p)
+                product_id_map[p_id] = p_id
             imported_counts["products"] += 1
 
         db.flush()
 
-        # 3. Upsert Khata Accounts (Dealers) - must precede Sales so sales.dealer_id FK is valid
+        # 3. Upsert Khata Accounts (Dealers)
         for d in khata_accounts_raw:
             d_id = parse_uuid(d.get("id")) or uuid.uuid4()
+            d_name = (d.get("name") or "").strip()
+
             existing = db.query(KhataAccount).filter(KhataAccount.id == d_id).first()
+            if not existing and d_name:
+                existing = db.query(KhataAccount).filter(func.lower(func.trim(KhataAccount.name)) == d_name.lower()).first()
+
             if existing:
-                existing.name = d.get("name", existing.name)
-                existing.phone = d.get("phone", existing.phone)
-                existing.address = d.get("address", existing.address)
+                dealer_id_map[d_id] = existing.id
+                existing.name = d_name or existing.name
+                if d.get("phone"):
+                    existing.phone = d.get("phone")
+                if d.get("address"):
+                    existing.address = d.get("address")
                 existing.role = d.get("role", existing.role)
                 existing.is_deleted = bool(d.get("is_deleted", False))
                 existing.deleted_at = parse_dt(d.get("deleted_at"))
             else:
                 new_d = KhataAccount(
                     id=d_id,
-                    name=d.get("name", "Unnamed Dealer"),
+                    name=d_name or "Unnamed Dealer",
                     phone=d.get("phone"),
                     address=d.get("address"),
                     role=d.get("role", "Dealer"),
@@ -424,17 +459,20 @@ def import_database_backup(
                     deleted_at=parse_dt(d.get("deleted_at"))
                 )
                 db.add(new_d)
+                dealer_id_map[d_id] = d_id
             imported_counts["khata_accounts"] += 1
 
         db.flush()
 
-        # 4. Upsert Sales (precedes stock_transactions and khata_entries)
+        # 4. Upsert Sales
         for s in sales_raw:
             s_id = parse_uuid(s.get("id")) or uuid.uuid4()
-            prod_id = parse_uuid(s.get("product_id"))
-            dealer_id = parse_uuid(s.get("dealer_id"))
+            raw_prod_id = parse_uuid(s.get("product_id"))
+            raw_dealer_id = parse_uuid(s.get("dealer_id"))
 
-            # Safety check foreign keys
+            prod_id = product_id_map.get(raw_prod_id, raw_prod_id) if raw_prod_id else None
+            dealer_id = dealer_id_map.get(raw_dealer_id, raw_dealer_id) if raw_dealer_id else None
+
             if prod_id and not db.query(Product).filter(Product.id == prod_id).first():
                 prod_id = None
             if dealer_id and not db.query(KhataAccount).filter(KhataAccount.id == dealer_id).first():
@@ -492,9 +530,10 @@ def import_database_backup(
         # 5. Upsert Stock Transactions
         for t in transactions_raw:
             t_id = parse_uuid(t.get("id")) or uuid.uuid4()
-            prod_id = parse_uuid(t.get("product_id"))
+            raw_prod_id = parse_uuid(t.get("product_id"))
             sale_id = parse_uuid(t.get("sale_id"))
 
+            prod_id = product_id_map.get(raw_prod_id, raw_prod_id) if raw_prod_id else None
             if prod_id and not db.query(Product).filter(Product.id == prod_id).first():
                 prod_id = None
             if sale_id and not db.query(Sale).filter(Sale.id == sale_id).first():
@@ -600,8 +639,10 @@ def import_database_backup(
         # 8. Upsert Khata Entries
         for ke in khata_entries_raw:
             ke_id = parse_uuid(ke.get("id")) or uuid.uuid4()
-            acc_id = parse_uuid(ke.get("account_id"))
+            raw_acc_id = parse_uuid(ke.get("account_id"))
             sale_id = parse_uuid(ke.get("sale_id"))
+
+            acc_id = dealer_id_map.get(raw_acc_id, raw_acc_id) if raw_acc_id else None
 
             if not acc_id or not db.query(KhataAccount).filter(KhataAccount.id == acc_id).first():
                 continue
@@ -654,28 +695,37 @@ def import_database_backup(
         # 9. Upsert Company Khata Accounts
         for ca in company_khata_accounts_raw:
             ca_id = parse_uuid(ca.get("id")) or uuid.uuid4()
-            cat_comp_id = parse_uuid(ca.get("catalog_company_id"))
-            if cat_comp_id and not db.query(Company).filter(Company.id == cat_comp_id).first():
-                cat_comp_id = None
+            raw_cat_comp_id = parse_uuid(ca.get("catalog_company_id"))
+            resolved_cat_comp_id = company_id_map.get(raw_cat_comp_id, raw_cat_comp_id) if raw_cat_comp_id else None
+            ca_name = (ca.get("name") or "").strip()
 
             existing = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == ca_id).first()
+            if not existing and ca_name:
+                existing = db.query(CompanyKhataAccount).filter(func.lower(func.trim(CompanyKhataAccount.name)) == ca_name.lower()).first()
+            if not existing and resolved_cat_comp_id:
+                existing = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.catalog_company_id == resolved_cat_comp_id).first()
+
             if existing:
-                existing.name = ca.get("name", existing.name)
-                existing.phone = ca.get("phone", existing.phone)
-                existing.catalog_company_id = cat_comp_id
+                co_account_id_map[ca_id] = existing.id
+                existing.name = ca_name or existing.name
+                if ca.get("phone"):
+                    existing.phone = ca.get("phone")
+                if resolved_cat_comp_id:
+                    existing.catalog_company_id = resolved_cat_comp_id
                 existing.is_deleted = bool(ca.get("is_deleted", False))
                 existing.deleted_at = parse_dt(ca.get("deleted_at"))
             else:
                 new_ca = CompanyKhataAccount(
                     id=ca_id,
-                    name=ca.get("name", ""),
+                    name=ca_name or "Unnamed Account",
                     phone=ca.get("phone"),
-                    catalog_company_id=cat_comp_id,
+                    catalog_company_id=resolved_cat_comp_id,
                     created_at=parse_dt(ca.get("created_at")) or datetime.utcnow(),
                     is_deleted=bool(ca.get("is_deleted", False)),
                     deleted_at=parse_dt(ca.get("deleted_at"))
                 )
                 db.add(new_ca)
+                co_account_id_map[ca_id] = ca_id
             imported_counts["company_khata_accounts"] += 1
 
         db.flush()
@@ -683,24 +733,26 @@ def import_database_backup(
         # 10. Upsert Company Khata Entries
         for cke in company_khata_entries_raw:
             cke_id = parse_uuid(cke.get("id")) or uuid.uuid4()
-            acc_id = parse_uuid(cke.get("account_id"))
-            comp_id = parse_uuid(cke.get("company_id"))
+            raw_acc_id = parse_uuid(cke.get("account_id"))
+            raw_comp_id = parse_uuid(cke.get("company_id"))
 
-            # Resolve or auto-create a valid CompanyKhataAccount for foreign key integrity
+            resolved_acc_id = co_account_id_map.get(raw_acc_id, raw_acc_id) if raw_acc_id else None
+            resolved_comp_id = company_id_map.get(raw_comp_id, raw_comp_id) if raw_comp_id else None
+
             target_acc = None
-            if acc_id:
-                target_acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == acc_id).first()
+            if resolved_acc_id:
+                target_acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == resolved_acc_id).first()
 
-            if not target_acc and comp_id:
-                target_acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.catalog_company_id == comp_id).first()
+            if not target_acc and resolved_comp_id:
+                target_acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.catalog_company_id == resolved_comp_id).first()
 
-            if not target_acc and comp_id:
-                comp_obj = db.query(Company).filter(Company.id == comp_id).first()
+            if not target_acc and resolved_comp_id:
+                comp_obj = db.query(Company).filter(Company.id == resolved_comp_id).first()
                 comp_name = comp_obj.name if comp_obj else "Imported Company Account"
                 target_acc = CompanyKhataAccount(
                     id=uuid.uuid4(),
                     name=comp_name,
-                    catalog_company_id=comp_id,
+                    catalog_company_id=resolved_comp_id,
                     created_at=datetime.utcnow()
                 )
                 db.add(target_acc)
@@ -709,16 +761,16 @@ def import_database_backup(
             if not target_acc:
                 continue
 
-            resolved_acc_id = target_acc.id
+            final_acc_id = target_acc.id
 
-            if comp_id and not db.query(Company).filter(Company.id == comp_id).first():
-                comp_id = None
+            if resolved_comp_id and not db.query(Company).filter(Company.id == resolved_comp_id).first():
+                resolved_comp_id = None
 
             existing = db.query(CompanyKhataEntry).filter(CompanyKhataEntry.id == cke_id).first()
             if existing:
-                existing.account_id = resolved_acc_id
-                if comp_id:
-                    existing.company_id = comp_id
+                existing.account_id = final_acc_id
+                if resolved_comp_id:
+                    existing.company_id = resolved_comp_id
                 existing.entry_date = parse_dt(cke.get("entry_date")) or existing.entry_date
                 existing.entry_type = cke.get("entry_type", existing.entry_type)
                 if cke.get("amount_paid") is not None:
@@ -736,8 +788,8 @@ def import_database_backup(
             else:
                 new_cke = CompanyKhataEntry(
                     id=cke_id,
-                    account_id=resolved_acc_id,
-                    company_id=comp_id,
+                    account_id=final_acc_id,
+                    company_id=resolved_comp_id,
                     entry_date=parse_dt(cke.get("entry_date")) or datetime.utcnow(),
                     entry_type=cke.get("entry_type", "PAYMENT"),
                     amount_paid=Decimal(str(cke.get("amount_paid", 0) or 0)),
@@ -762,9 +814,14 @@ def import_database_backup(
         money_accounts_raw = data.get("money_accounts", [])
         for ma in money_accounts_raw:
             ma_id = parse_uuid(ma.get("id")) or uuid.uuid4()
+            ma_title = (ma.get("title") or "").strip()
+
             existing = db.query(MoneyAccount).filter(MoneyAccount.id == ma_id).first()
+            if not existing and ma_title:
+                existing = db.query(MoneyAccount).filter(func.lower(func.trim(MoneyAccount.title)) == ma_title.lower()).first()
+
             if existing:
-                existing.title = ma.get("title", existing.title)
+                existing.title = ma_title or existing.title
                 existing.bank_name = ma.get("bank_name", existing.bank_name)
                 existing.account_type = ma.get("account_type", existing.account_type or 'BANK')
                 existing.account_number = ma.get("account_number", existing.account_number)
@@ -773,7 +830,7 @@ def import_database_backup(
             else:
                 new_ma = MoneyAccount(
                     id=ma_id,
-                    title=ma.get("title", ""),
+                    title=ma_title,
                     bank_name=ma.get("bank_name"),
                     account_type=ma.get("account_type", "BANK"),
                     account_number=ma.get("account_number"),
