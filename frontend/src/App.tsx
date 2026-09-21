@@ -22,6 +22,8 @@ const Backup = React.lazy(() => import('./pages/Backup'));
 const MoreHub = React.lazy(() => import('./pages/MoreHub'));
 const CompanyKhata = React.lazy(() => import('./pages/CompanyKhata'));
 const CompanyKhataDetail = React.lazy(() => import('./pages/CompanyKhataDetail'));
+const MoneyManagement = React.lazy(() => import('./pages/MoneyManagement'));
+const MoneyAccountDetail = React.lazy(() => import('./pages/MoneyAccountDetail'));
 
 const PageLoader: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400">
@@ -50,6 +52,8 @@ const App: React.FC = () => {
                   <Route path="/khata/:dealerId" element={<KhataDetail />} />
                   <Route path="/company-khata" element={<CompanyKhata />} />
                   <Route path="/company-khata/:companyId" element={<CompanyKhataDetail />} />
+                  <Route path="/money" element={<MoneyManagement />} />
+                  <Route path="/money/:accountId" element={<MoneyAccountDetail />} />
                   <Route path="/more" element={<MoreHub />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/notes" element={<Notes />} />

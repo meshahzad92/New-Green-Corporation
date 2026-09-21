@@ -35,6 +35,7 @@ class CompanyPaymentCreate(BaseModel):
     bank_name: Optional[str] = None
     transaction_id: Optional[str] = None
     remarks: Optional[str] = None
+    money_account_id: Optional[UUID] = None  # If set, deducts from this money account
 
 class CompanyPurchaseItem(BaseModel):
     product_id: UUID

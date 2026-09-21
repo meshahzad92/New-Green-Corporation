@@ -102,7 +102,32 @@ This file serves as the comprehensive living context and knowledge base for the 
 - `is_deleted` (Boolean, default `False`) — soft-delete support
 - `deleted_at` (DateTime with timezone, nullable)
 
----
+### 8. `money_accounts`
+- `id` (UUID, Primary Key, default `uuid.uuid4`)
+- `title` (Text, NOT NULL) — e.g. "Shahzad Spray Center"
+- `bank_name` (Text, nullable) — e.g. "UBL", "HBL"
+- `account_type` (Text, default `'BANK'`) — `'BANK'` or `'CASH'`
+- `account_number` (Text, nullable) — optional IBAN / account number
+- `opening_balance` (Numeric(12, 2), default `0.00`) — set once on account creation
+- `created_at` (DateTime with timezone)
+- `is_deleted` (Boolean, default `False`)
+- `deleted_at` (DateTime, nullable)
+
+### 9. `money_transactions`
+- `id` (UUID, Primary Key, default `uuid.uuid4`)
+- `account_id` (UUID FK → `money_accounts.id`, ON DELETE CASCADE, NOT NULL)
+- `transaction_date` (DateTime with timezone, NOT NULL)
+- `type` (Text, CheckConstraint `type IN ('DEPOSIT', 'WITHDRAWAL', 'OPENING', 'COMPANY_PAYMENT')`)
+- `amount` (Numeric(12, 2), NOT NULL) — always positive; direction determined by `type`
+- `payment_method` (Text, nullable) — `'ONLINE'` or `'CASH'`
+- `description` (Text, nullable) — free-text note
+- `tid` (Text, nullable) — Transaction ID / reference number
+- `company_khata_entry_id` (UUID FK → `company_khata_entries.id`, ON DELETE SET NULL, nullable) — links to Company Khata payment for 2-way sync
+- `created_at` (DateTime with timezone)
+- `is_deleted` (Boolean, default `False`)
+- `deleted_at` (DateTime, nullable)
+
+
 
 ## 3. Core Business Rules & Formulas
 
@@ -180,8 +205,17 @@ This file serves as the comprehensive living context and knowledge base for the 
 - `POST /api/v1/notes/` — Create note (with 15s deduplication check).
 - `PUT /api/v1/notes/{id}` — Update note.
 - `DELETE /api/v1/notes/{id}` — Soft delete note.
-- `GET /api/v1/backup/export` — Export full database snapshot in JSON (including companies, products, sales, transactions, expenses, notes).
+- `GET /api/v1/backup/export` — Export full database snapshot in JSON (including companies, products, sales, transactions, expenses, notes, khata, money accounts & transactions).
 - `POST /api/v1/backup/import` — Import and upsert database backup JSON.
+- `GET /api/v1/money/accounts` — List all money accounts with computed current balances.
+- `POST /api/v1/money/accounts` — Create bank/cash account (auto-inserts OPENING transaction if opening_balance > 0).
+- `PUT /api/v1/money/accounts/{id}` — Update account title/details.
+- `DELETE /api/v1/money/accounts/{id}` — Soft delete account (blocked if non-OPENING transactions exist).
+- `GET /api/v1/money/accounts/{id}/ledger` — Full chronological ledger with running balance.
+- `POST /api/v1/money/transactions` — Record DEPOSIT or WITHDRAWAL.
+- `PUT /api/v1/money/transactions/{id}` — Edit transaction details.
+- `DELETE /api/v1/money/transactions/{id}` — Soft delete transaction.
+
 
 ---
 
@@ -471,3 +505,36 @@ To counteract Supabase cloud latency and accidental double-clicks:
   - Added SQLAlchemy connection pooling configuration: `pool_pre_ping=True`, `pool_recycle=300`, `pool_size=10`, `max_overflow=20`, and TCP keepalives.
   - Connection time dropped from 45+ seconds to **1.1 seconds**, completely eliminating the DNS error.
 
+---
+
+## 10. Changes Log — Session 2026-09-21
+
+### 26. **Money Management Module**
+- **Architecture**:
+  - Added `money_accounts` table: tracks bank accounts and cash counters (`title`, `bank_name`, `account_type` ['BANK'/'CASH'], `account_number`, `opening_balance`, soft-delete flags).
+  - Added `money_transactions` table: records every movement of money (`account_id`, `transaction_date`, `type` ['DEPOSIT'/'WITHDRAWAL'/'OPENING'/'COMPANY_PAYMENT'], `amount`, `payment_method`, `description`, `tid`, `company_khata_entry_id` FK for 2-way sync).
+  - Tables created automatically at backend startup via `CREATE TABLE IF NOT EXISTS` in `main.py`.
+- **Backend API** (`/api/v1/money/`):
+  - Full REST CRUD for accounts and transactions.
+  - `GET /accounts` returns computed `current_balance` = `opening_balance + SUM(DEPOSIT+OPENING) - SUM(WITHDRAWAL+COMPANY_PAYMENT)`.
+  - `POST /accounts` auto-inserts an `OPENING` type transaction if `opening_balance > 0`.
+  - `GET /accounts/{id}/ledger` returns full chronological transaction list with running balance per row.
+  - Account deletion blocked if non-OPENING transactions exist (same deletion-protection pattern as Company Khata).
+- **2-Way Company Khata Sync**:
+  - `CompanyPaymentCreate` schema gains optional `money_account_id` field.
+  - `create_company_payment()` in `crud_company_khata.py`: when `money_account_id` is provided, atomically creates both the `CompanyKhataEntry` (PAYMENT) AND a `MoneyTransaction` (type=`COMPANY_PAYMENT`, linked by `company_khata_entry_id`). Both are in the same DB transaction — if either fails, both roll back.
+  - Result: Paying a company from the Company Khata form automatically deducts from your chosen bank/cash account balance.
+- **Frontend Pages**:
+  - `/money` — Overview dashboard (`MoneyManagement.tsx`): 3 summary cards (Total / Bank / Cash), per-account cards with gradient headers, quick Deposit/Withdraw action buttons, Edit/Delete, View Ledger nav.
+  - `/money/:accountId` — Ledger detail (`MoneyAccountDetail.tsx`): 3 summary cards (Deposits / Withdrawals / Balance), full transaction table with type badges (DEPOSIT=green, WITHDRAWAL=red, OPENING=slate, COMPANY_PAYMENT=blue), running balance column, inline Edit/Delete (OPENING and COMPANY_PAYMENT rows are locked).
+- **Frontend Modals/Components**:
+  - `AddMoneyAccountModal.tsx`: BANK/CASH type toggle, conditional bank name & IBAN fields, opening balance field (only on create).
+  - `AddMoneyTransactionModal.tsx`: DEPOSIT/WITHDRAWAL type toggle (color-adapts), CustomDatePicker, ONLINE/CASH method, TID field (online-only), description.
+  - `CompanyPaymentModal.tsx`: new optional "Deduct from My Account" dropdown listing all `money_accounts` with live balance preview (`current → new balance`).
+- **Navigation**:
+  - Sidebar: "Money" nav item (Banknote icon) between Company Khata and More.
+  - MoreHub: Money Management card (blue-to-indigo gradient, Finance badge).
+- **Backup & Restore**:
+  - `money_accounts` and `money_transactions` fully included in `/backup/export` (sections 11 & 12) and `/backup/import` upsert logic.
+- **API Client**:
+  - `frontend/src/utils/moneyApi.ts`: `MoneyAccount`, `MoneyTransaction`, `MoneyAccountLedger` TypeScript interfaces + full `moneyService` singleton.

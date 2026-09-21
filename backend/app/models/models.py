@@ -148,7 +148,7 @@ class KhataEntry(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     account = relationship("KhataAccount", back_populates="entries")
- 
+
 class CompanyKhataAccount(Base):
     __tablename__ = "company_khata_accounts"
 
@@ -191,3 +191,33 @@ class CompanyKhataEntry(Base):
     company = relationship("Company", back_populates="khata_entries")
 
 
+class MoneyAccount(Base):
+    __tablename__ = "money_accounts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(Text, nullable=False)
+    bank_name = Column(Text, nullable=True)  # e.g. 'UBL', 'HBL', 'CASH'
+    account_type = Column(Text, default='BANK', nullable=False)  # 'BANK' or 'CASH'
+    account_number = Column(Text, nullable=True)
+    opening_balance = Column(Numeric(12, 2), default=0.0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    transactions = relationship("MoneyTransaction", back_populates="account", cascade="all, delete-orphan")
+
+class MoneyTransaction(Base):
+    __tablename__ = "money_transactions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("money_accounts.id", ondelete="CASCADE"), nullable=False)
+    transaction_date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    type = Column(Text, CheckConstraint("type IN ('DEPOSIT', 'WITHDRAWAL', 'OPENING', 'COMPANY_PAYMENT')"), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    payment_method = Column(Text, nullable=True)  # 'ONLINE', 'CASH'
+    description = Column(Text, nullable=True)
+    tid = Column(Text, nullable=True)  # Transaction ID / reference number
+    company_khata_entry_id = Column(UUID(as_uuid=True), ForeignKey("company_khata_entries.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    account = relationship("MoneyAccount", back_populates="transactions")

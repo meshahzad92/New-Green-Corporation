@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, StickyNote, Database, ArrowRight, Sparkles, ShieldCheck, FileSpreadsheet } from 'lucide-react';
+import { BarChart3, StickyNote, Database, ArrowRight, Sparkles, ShieldCheck, FileSpreadsheet, Banknote } from 'lucide-react';
 
 const MoreHub: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +32,16 @@ const MoreHub: React.FC = () => {
       color: 'from-emerald-600 to-teal-600',
       badge: 'Security',
       badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-    }
+    },
+    {
+      title: 'Money Management',
+      description: 'Track your bank and cash accounts, record deposits and withdrawals, and sync payments automatically with Company Khata.',
+      icon: Banknote,
+      path: '/money',
+      color: 'from-blue-600 to-indigo-600',
+      badge: 'Finance',
+      badgeColor: 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+    },
   ];
 
   return (

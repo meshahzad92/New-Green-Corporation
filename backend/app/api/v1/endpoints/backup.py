@@ -94,6 +94,9 @@ def export_database_backup(
             "product_id": str(s.product_id) if s.product_id else None,
             "customer_name": s.customer_name,
             "customer_phone": s.customer_phone,
+            "dealer_id": str(s.dealer_id) if s.dealer_id else None,
+            "dealer_name": s.dealer_name,
+            "farmer_name": s.farmer_name,
             "quantity": s.quantity,
             "selling_price": to_float(s.selling_price),
             "purchase_price": to_float(s.purchase_price),
@@ -235,6 +238,42 @@ def export_database_backup(
             "deleted_at": to_iso(cke.deleted_at)
         })
 
+    # 11. Money Accounts
+    from app.models.models import MoneyAccount, MoneyTransaction
+    money_accounts_db = db.query(MoneyAccount).all()
+    money_accounts_data = []
+    for ma in money_accounts_db:
+        money_accounts_data.append({
+            "id": str(ma.id),
+            "title": ma.title,
+            "bank_name": ma.bank_name,
+            "account_type": ma.account_type,
+            "account_number": ma.account_number,
+            "opening_balance": to_float(ma.opening_balance),
+            "created_at": to_iso(ma.created_at),
+            "is_deleted": bool(ma.is_deleted),
+            "deleted_at": to_iso(ma.deleted_at)
+        })
+
+    # 12. Money Transactions
+    money_txns_db = db.query(MoneyTransaction).all()
+    money_txns_data = []
+    for mt in money_txns_db:
+        money_txns_data.append({
+            "id": str(mt.id),
+            "account_id": str(mt.account_id),
+            "transaction_date": to_iso(mt.transaction_date),
+            "type": mt.type,
+            "amount": to_float(mt.amount),
+            "payment_method": mt.payment_method,
+            "description": mt.description,
+            "tid": mt.tid,
+            "company_khata_entry_id": str(mt.company_khata_entry_id) if mt.company_khata_entry_id else None,
+            "created_at": to_iso(mt.created_at),
+            "is_deleted": bool(mt.is_deleted),
+            "deleted_at": to_iso(mt.deleted_at)
+        })
+
     return {
         "version": "1.0",
         "app": "AgriManage Pro",
@@ -249,7 +288,9 @@ def export_database_backup(
             "khata_accounts": len(dealers_data),
             "khata_entries": len(entries_data),
             "company_khata_accounts": len(co_accounts_data),
-            "company_khata_entries": len(co_entries_data)
+            "company_khata_entries": len(co_entries_data),
+            "money_accounts": len(money_accounts_data),
+            "money_transactions": len(money_txns_data)
         },
         "database": {
             "companies": companies_data,
@@ -261,7 +302,9 @@ def export_database_backup(
             "khata_accounts": dealers_data,
             "khata_entries": entries_data,
             "company_khata_accounts": co_accounts_data,
-            "company_khata_entries": co_entries_data
+            "company_khata_entries": co_entries_data,
+            "money_accounts": money_accounts_data,
+            "money_transactions": money_txns_data
         }
     }
 
@@ -298,7 +341,9 @@ def import_database_backup(
         "khata_accounts": 0,
         "khata_entries": 0,
         "company_khata_accounts": 0,
-        "company_khata_entries": 0
+        "company_khata_entries": 0,
+        "money_accounts": 0,
+        "money_transactions": 0
     }
 
     try:
@@ -356,15 +401,53 @@ def import_database_backup(
 
         db.flush()
 
-        # 3. Upsert Sales (must precede transactions since transactions can reference sale_id)
+        # 3. Upsert Khata Accounts (Dealers) - must precede Sales so sales.dealer_id FK is valid
+        for d in khata_accounts_raw:
+            d_id = parse_uuid(d.get("id")) or uuid.uuid4()
+            existing = db.query(KhataAccount).filter(KhataAccount.id == d_id).first()
+            if existing:
+                existing.name = d.get("name", existing.name)
+                existing.phone = d.get("phone", existing.phone)
+                existing.address = d.get("address", existing.address)
+                existing.role = d.get("role", existing.role)
+                existing.is_deleted = bool(d.get("is_deleted", False))
+                existing.deleted_at = parse_dt(d.get("deleted_at"))
+            else:
+                new_d = KhataAccount(
+                    id=d_id,
+                    name=d.get("name", "Unnamed Dealer"),
+                    phone=d.get("phone"),
+                    address=d.get("address"),
+                    role=d.get("role", "Dealer"),
+                    created_at=parse_dt(d.get("created_at")) or datetime.utcnow(),
+                    is_deleted=bool(d.get("is_deleted", False)),
+                    deleted_at=parse_dt(d.get("deleted_at"))
+                )
+                db.add(new_d)
+            imported_counts["khata_accounts"] += 1
+
+        db.flush()
+
+        # 4. Upsert Sales (precedes stock_transactions and khata_entries)
         for s in sales_raw:
             s_id = parse_uuid(s.get("id")) or uuid.uuid4()
             prod_id = parse_uuid(s.get("product_id"))
+            dealer_id = parse_uuid(s.get("dealer_id"))
+
+            # Safety check foreign keys
+            if prod_id and not db.query(Product).filter(Product.id == prod_id).first():
+                prod_id = None
+            if dealer_id and not db.query(KhataAccount).filter(KhataAccount.id == dealer_id).first():
+                dealer_id = None
+
             existing = db.query(Sale).filter(Sale.id == s_id).first()
             if existing:
                 existing.product_id = prod_id or existing.product_id
                 existing.customer_name = s.get("customer_name", existing.customer_name)
                 existing.customer_phone = s.get("customer_phone", existing.customer_phone)
+                existing.dealer_id = dealer_id or existing.dealer_id
+                existing.dealer_name = s.get("dealer_name", existing.dealer_name)
+                existing.farmer_name = s.get("farmer_name", existing.farmer_name)
                 if s.get("quantity") is not None:
                     existing.quantity = int(s["quantity"])
                 if s.get("selling_price") is not None:
@@ -386,6 +469,9 @@ def import_database_backup(
                     product_id=prod_id,
                     customer_name=s.get("customer_name", ""),
                     customer_phone=s.get("customer_phone"),
+                    dealer_id=dealer_id,
+                    dealer_name=s.get("dealer_name"),
+                    farmer_name=s.get("farmer_name"),
                     quantity=int(s.get("quantity", 1) or 1),
                     selling_price=Decimal(str(s.get("selling_price", 0) or 0)),
                     purchase_price=Decimal(str(s.get("purchase_price", 0) or 0)),
@@ -403,11 +489,17 @@ def import_database_backup(
 
         db.flush()
 
-        # 4. Upsert Stock Transactions
+        # 5. Upsert Stock Transactions
         for t in transactions_raw:
             t_id = parse_uuid(t.get("id")) or uuid.uuid4()
             prod_id = parse_uuid(t.get("product_id"))
             sale_id = parse_uuid(t.get("sale_id"))
+
+            if prod_id and not db.query(Product).filter(Product.id == prod_id).first():
+                prod_id = None
+            if sale_id and not db.query(Sale).filter(Sale.id == sale_id).first():
+                sale_id = None
+
             existing = db.query(StockTransaction).filter(StockTransaction.id == t_id).first()
             if existing:
                 existing.product_id = prod_id or existing.product_id
@@ -444,7 +536,7 @@ def import_database_backup(
 
         db.flush()
 
-        # 5. Upsert Expenses
+        # 6. Upsert Expenses
         for e in expenses_raw:
             e_id = parse_uuid(e.get("id")) or uuid.uuid4()
             existing = db.query(Expense).filter(Expense.id == e_id).first()
@@ -473,7 +565,7 @@ def import_database_backup(
                 db.add(new_e)
             imported_counts["expenses"] += 1
 
-        # 6. Upsert Notes
+        # 7. Upsert Notes
         for n in notes_raw:
             n_id = parse_uuid(n.get("id")) or uuid.uuid4()
             existing = db.query(Note).filter(Note.id == n_id).first()
@@ -503,37 +595,19 @@ def import_database_backup(
                 db.add(new_n)
             imported_counts["notes"] += 1
 
-        # 7. Upsert Khata Accounts (Dealers)
-        for d in khata_accounts_raw:
-            d_id = parse_uuid(d.get("id")) or uuid.uuid4()
-            existing = db.query(KhataAccount).filter(KhataAccount.id == d_id).first()
-            if existing:
-                existing.name = d.get("name", existing.name)
-                existing.phone = d.get("phone", existing.phone)
-                existing.address = d.get("address", existing.address)
-                existing.role = d.get("role", existing.role)
-                existing.is_deleted = bool(d.get("is_deleted", False))
-                existing.deleted_at = parse_dt(d.get("deleted_at"))
-            else:
-                new_d = KhataAccount(
-                    id=d_id,
-                    name=d.get("name", "Unnamed Dealer"),
-                    phone=d.get("phone"),
-                    address=d.get("address"),
-                    role=d.get("role", "Dealer"),
-                    created_at=parse_dt(d.get("created_at")) or datetime.utcnow(),
-                    is_deleted=bool(d.get("is_deleted", False)),
-                    deleted_at=parse_dt(d.get("deleted_at"))
-                )
-                db.add(new_d)
-            imported_counts["khata_accounts"] += 1
+        db.flush()
 
         # 8. Upsert Khata Entries
         for ke in khata_entries_raw:
             ke_id = parse_uuid(ke.get("id")) or uuid.uuid4()
             acc_id = parse_uuid(ke.get("account_id"))
-            if not acc_id:
+            sale_id = parse_uuid(ke.get("sale_id"))
+
+            if not acc_id or not db.query(KhataAccount).filter(KhataAccount.id == acc_id).first():
                 continue
+
+            if sale_id and not db.query(Sale).filter(Sale.id == sale_id).first():
+                sale_id = None
 
             existing = db.query(KhataEntry).filter(KhataEntry.id == ke_id).first()
             if existing:
@@ -547,7 +621,7 @@ def import_database_backup(
                     existing.recovery_amount = Decimal(str(ke["recovery_amount"]))
                 existing.products_detail = ke.get("products_detail", existing.products_detail)
                 existing.invoice_id = ke.get("invoice_id", existing.invoice_id)
-                existing.sale_id = parse_uuid(ke.get("sale_id"))
+                existing.sale_id = sale_id
                 existing.remarks = ke.get("remarks", existing.remarks)
                 existing.payment_method = ke.get("payment_method", existing.payment_method or "CASH")
                 existing.bank_name = ke.get("bank_name", existing.bank_name)
@@ -566,7 +640,7 @@ def import_database_backup(
                     bank_name=ke.get("bank_name"),
                     products_detail=ke.get("products_detail"),
                     invoice_id=ke.get("invoice_id"),
-                    sale_id=parse_uuid(ke.get("sale_id")),
+                    sale_id=sale_id,
                     remarks=ke.get("remarks"),
                     created_at=parse_dt(ke.get("created_at")) or datetime.utcnow(),
                     is_deleted=bool(ke.get("is_deleted", False)),
@@ -575,10 +649,15 @@ def import_database_backup(
                 db.add(new_ke)
             imported_counts["khata_entries"] += 1
 
+        db.flush()
+
         # 9. Upsert Company Khata Accounts
         for ca in company_khata_accounts_raw:
             ca_id = parse_uuid(ca.get("id")) or uuid.uuid4()
             cat_comp_id = parse_uuid(ca.get("catalog_company_id"))
+            if cat_comp_id and not db.query(Company).filter(Company.id == cat_comp_id).first():
+                cat_comp_id = None
+
             existing = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == ca_id).first()
             if existing:
                 existing.name = ca.get("name", existing.name)
@@ -606,6 +685,12 @@ def import_database_backup(
             cke_id = parse_uuid(cke.get("id")) or uuid.uuid4()
             acc_id = parse_uuid(cke.get("account_id"))
             comp_id = parse_uuid(cke.get("company_id"))
+
+            if acc_id and not db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == acc_id).first():
+                acc_id = None
+            if comp_id and not db.query(Company).filter(Company.id == comp_id).first():
+                comp_id = None
+
             if not acc_id and not comp_id:
                 continue
 
@@ -650,6 +735,81 @@ def import_database_backup(
                 )
                 db.add(new_cke)
             imported_counts["company_khata_entries"] += 1
+
+        db.flush()
+
+        # 11. Upsert Money Accounts
+        from app.models.models import MoneyAccount, MoneyTransaction as MT
+        money_accounts_raw = data.get("money_accounts", [])
+        for ma in money_accounts_raw:
+            ma_id = parse_uuid(ma.get("id")) or uuid.uuid4()
+            existing = db.query(MoneyAccount).filter(MoneyAccount.id == ma_id).first()
+            if existing:
+                existing.title = ma.get("title", existing.title)
+                existing.bank_name = ma.get("bank_name", existing.bank_name)
+                existing.account_type = ma.get("account_type", existing.account_type or 'BANK')
+                existing.account_number = ma.get("account_number", existing.account_number)
+                existing.is_deleted = bool(ma.get("is_deleted", False))
+                existing.deleted_at = parse_dt(ma.get("deleted_at"))
+            else:
+                new_ma = MoneyAccount(
+                    id=ma_id,
+                    title=ma.get("title", ""),
+                    bank_name=ma.get("bank_name"),
+                    account_type=ma.get("account_type", "BANK"),
+                    account_number=ma.get("account_number"),
+                    opening_balance=Decimal(str(ma.get("opening_balance", 0) or 0)),
+                    created_at=parse_dt(ma.get("created_at")) or datetime.utcnow(),
+                    is_deleted=bool(ma.get("is_deleted", False)),
+                    deleted_at=parse_dt(ma.get("deleted_at"))
+                )
+                db.add(new_ma)
+            imported_counts["money_accounts"] += 1
+
+        db.flush()
+
+        # 12. Upsert Money Transactions
+        money_txns_raw = data.get("money_transactions", [])
+        for mt in money_txns_raw:
+            mt_id = parse_uuid(mt.get("id")) or uuid.uuid4()
+            acc_id = parse_uuid(mt.get("account_id"))
+            co_entry_id = parse_uuid(mt.get("company_khata_entry_id"))
+
+            if not acc_id or not db.query(MoneyAccount).filter(MoneyAccount.id == acc_id).first():
+                continue
+
+            if co_entry_id and not db.query(CompanyKhataEntry).filter(CompanyKhataEntry.id == co_entry_id).first():
+                co_entry_id = None
+
+            existing = db.query(MT).filter(MT.id == mt_id).first()
+            if existing:
+                existing.transaction_date = parse_dt(mt.get("transaction_date")) or existing.transaction_date
+                existing.type = mt.get("type", existing.type)
+                if mt.get("amount") is not None:
+                    existing.amount = Decimal(str(mt["amount"]))
+                existing.payment_method = mt.get("payment_method", existing.payment_method)
+                existing.description = mt.get("description", existing.description)
+                existing.tid = mt.get("tid", existing.tid)
+                existing.company_khata_entry_id = co_entry_id
+                existing.is_deleted = bool(mt.get("is_deleted", False))
+                existing.deleted_at = parse_dt(mt.get("deleted_at"))
+            else:
+                new_mt = MT(
+                    id=mt_id,
+                    account_id=acc_id,
+                    transaction_date=parse_dt(mt.get("transaction_date")) or datetime.utcnow(),
+                    type=mt.get("type", "DEPOSIT"),
+                    amount=Decimal(str(mt.get("amount", 0) or 0)),
+                    payment_method=mt.get("payment_method"),
+                    description=mt.get("description"),
+                    tid=mt.get("tid"),
+                    company_khata_entry_id=co_entry_id,
+                    created_at=parse_dt(mt.get("created_at")) or datetime.utcnow(),
+                    is_deleted=bool(mt.get("is_deleted", False)),
+                    deleted_at=parse_dt(mt.get("deleted_at"))
+                )
+                db.add(new_mt)
+            imported_counts["money_transactions"] += 1
 
         db.commit()
 

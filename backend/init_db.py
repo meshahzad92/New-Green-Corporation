@@ -1,4 +1,5 @@
 from app.db.session import SessionLocal, engine, Base
+import app.models.models  # Ensure all SQLAlchemy models are registered
 from app.models.models import User, Company
 from app.core.security import get_password_hash
 from sqlalchemy import text, inspect
@@ -17,7 +18,7 @@ PREDEFINED_COMPANIES = [
 def init_db():
     print("🔧 Initializing database...")
     
-    # Create all tables
+    # Create all tables defined in SQLAlchemy models
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables created")
     
@@ -43,7 +44,7 @@ def init_db():
         
         if 'is_deleted' not in columns:
             try:
-                db.execute(text("ALTER TABLE stock_transactions ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
+                db.execute(text("ALTER TABLE stock_transactions ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE"))
                 db.execute(text("ALTER TABLE stock_transactions ADD COLUMN deleted_at TIMESTAMP"))
                 db.commit()
                 print("✅ Added soft delete columns to stock_transactions")
@@ -56,7 +57,7 @@ def init_db():
         
         if 'is_deleted' not in columns:
             try:
-                db.execute(text("ALTER TABLE sales ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
+                db.execute(text("ALTER TABLE sales ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE"))
                 db.execute(text("ALTER TABLE sales ADD COLUMN deleted_at TIMESTAMP"))
                 db.commit()
                 print("✅ Added soft delete columns to sales")

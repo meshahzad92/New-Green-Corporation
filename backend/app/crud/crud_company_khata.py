@@ -319,7 +319,9 @@ def get_company_khata_ledger(db: Session, account_id: UUID) -> CompanyKhataLedge
 # ==============================================================================
 
 def create_company_payment(db: Session, data: CompanyPaymentCreate):
-    """Record an advance payment or bill settlement made to a company account"""
+    """Record an advance payment or bill settlement made to a company account.
+    If money_account_id is provided, automatically deducts from that money account (2-way sync).
+    """
     target_id = data.account_id or data.company_id
     if not target_id:
         raise HTTPException(status_code=400, detail="Account ID is required")
@@ -344,6 +346,30 @@ def create_company_payment(db: Session, data: CompanyPaymentCreate):
         created_at=now
     )
     db.add(entry)
+    db.flush()  # get entry.id before creating money transaction
+
+    # 2-way sync: deduct from money account if specified
+    if data.money_account_id:
+        from app.models.models import MoneyAccount, MoneyTransaction
+        money_acc = db.query(MoneyAccount).filter(
+            MoneyAccount.id == data.money_account_id,
+            MoneyAccount.is_deleted == False
+        ).first()
+        if money_acc:
+            money_txn = MoneyTransaction(
+                id=uuid.uuid4(),
+                account_id=money_acc.id,
+                transaction_date=data.entry_date or now,
+                type='COMPANY_PAYMENT',
+                amount=Decimal(str(data.amount_paid)),
+                payment_method=data.payment_method or 'ONLINE',
+                description=f"Payment to {acc.name}" + (f" — {data.remarks}" if data.remarks else ""),
+                tid=data.transaction_id.strip() if data.transaction_id else None,
+                company_khata_entry_id=entry.id,
+                created_at=now
+            )
+            db.add(money_txn)
+
     db.commit()
     db.refresh(entry)
     return entry

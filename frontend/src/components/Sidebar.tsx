@@ -20,6 +20,7 @@ import {
   MoreVertical,
   BookOpen,
   Landmark,
+  Banknote,
   MoreHorizontal
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ const navItems = [
   { path: '/expenses', label: 'Expenses', icon: Receipt },
   { path: '/khata', label: 'Dealer Khata', icon: BookOpen },
   { path: '/company-khata', label: 'Company Khata', icon: Landmark },
+  { path: '/money', label: 'Money', icon: Banknote },
   { path: '/more', label: 'More', icon: MoreHorizontal },
 ];
 

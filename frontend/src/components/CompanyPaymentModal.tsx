@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Building2, CreditCard, Banknote, Calendar, CheckCircle, Loader2 } from 'lucide-react';
 import CustomDatePicker from './CustomDatePicker';
 import { companyKhataService, CompanyKhataOverview } from '../utils/companyKhataApi';
+import { moneyService, MoneyAccount } from '../utils/moneyApi';
 import { formatAmount } from '../utils/formatters';
 
 interface CompanyPaymentModalProps {
@@ -32,6 +33,8 @@ export const CompanyPaymentModal: React.FC<CompanyPaymentModalProps> = ({
   const [remarks, setRemarks] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [moneyAccounts, setMoneyAccounts] = useState<MoneyAccount[]>([]);
+  const [selectedMoneyAccountId, setSelectedMoneyAccountId] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -58,6 +61,8 @@ export const CompanyPaymentModal: React.FC<CompanyPaymentModalProps> = ({
       setRemarks('');
       setError('');
       setIsSubmitting(false);
+      setSelectedMoneyAccountId('');
+      moneyService.getAccounts().then(setMoneyAccounts).catch(() => {});
     }
   }, [isOpen, preselectedCompanyId, companiesList]);
 
@@ -99,7 +104,8 @@ export const CompanyPaymentModal: React.FC<CompanyPaymentModalProps> = ({
         payment_method: paymentMethod,
         bank_name: finalBank,
         transaction_id: paymentMethod === 'ONLINE' && transactionId.trim() ? transactionId.trim() : undefined,
-        remarks: remarks.trim() || undefined
+        remarks: remarks.trim() || undefined,
+        money_account_id: selectedMoneyAccountId || undefined,
       });
 
       onSuccess();
@@ -297,6 +303,39 @@ export const CompanyPaymentModal: React.FC<CompanyPaymentModalProps> = ({
                 Rs. {formatAmount(Number(amount))}
               </p>
             )}
+          </div>
+
+          {/* Deduct from My Account (Optional) */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
+              Deduct from My Account <span className="text-gray-400 normal-case">(Optional — for 2-way balance sync)</span>
+            </label>
+            {moneyAccounts.length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">No money accounts set up. Add one in Money Management to enable auto-deduction.</p>
+            ) : (
+              <select
+                value={selectedMoneyAccountId}
+                onChange={(e) => setSelectedMoneyAccountId(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition text-sm"
+              >
+                <option value="">-- Don't deduct (manual only) --</option>
+                {moneyAccounts.map(ma => (
+                  <option key={ma.id} value={ma.id}>
+                    {ma.title}{ma.bank_name ? ` (${ma.bank_name})` : ''} — Rs. {ma.current_balance.toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedMoneyAccountId && amount && parseFloat(amount) > 0 && (() => {
+              const sel = moneyAccounts.find(m => m.id === selectedMoneyAccountId);
+              if (!sel) return null;
+              const newBal = sel.current_balance - parseFloat(amount);
+              return (
+                <p className={`mt-1.5 text-xs font-semibold ${newBal >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {sel.title} balance: Rs. {sel.current_balance.toLocaleString()} → Rs. {newBal.toLocaleString()}
+                </p>
+              );
+            })()}
           </div>
 
           {/* Remarks */}

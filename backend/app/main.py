@@ -26,7 +26,13 @@ app.include_router(api_router, prefix="/api/v1")
 def startup_event():
     try:
         from sqlalchemy import text
-        from app.db.session import engine
+        from app.db.session import engine, Base, SessionLocal
+        import app.models.models  # Guarantees all 13 models are imported and registered in Base.metadata
+
+        # 1. Create all tables defined in SQLAlchemy models if they do not already exist
+        Base.metadata.create_all(bind=engine)
+
+        # 2. Non-destructive migrations and compatibility checks
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12, 2);"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_id VARCHAR(50);"))
@@ -145,8 +151,74 @@ def startup_event():
                       )
                 );
             """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS money_accounts (
+                    id UUID PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    bank_name TEXT,
+                    account_type TEXT NOT NULL DEFAULT 'BANK',
+                    account_number TEXT,
+                    opening_balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS money_transactions (
+                    id UUID PRIMARY KEY,
+                    account_id UUID NOT NULL REFERENCES money_accounts(id) ON DELETE CASCADE,
+                    transaction_date TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+                    type TEXT NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'OPENING', 'COMPANY_PAYMENT')),
+                    amount NUMERIC(12, 2) NOT NULL,
+                    payment_method TEXT,
+                    description TEXT,
+                    tid TEXT,
+                    company_khata_entry_id UUID REFERENCES company_khata_entries(id) ON DELETE SET NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                    deleted_at TIMESTAMP WITH TIME ZONE
+                );
+            """))
             conn.commit()
             print("Schema verified: paid_amount, invoice columns, mrp, company_discount, notes table present, customer_phone widened to VARCHAR(20), and duplicate products pruned.")
+
+        # 3. Seed default admin user and initial companies if database is fresh
+        try:
+            db = SessionLocal()
+            from app.models.models import User, Company
+            from app.core.security import get_password_hash
+
+            admin_user = db.query(User).filter(User.email == "waris92").first()
+            if not admin_user:
+                new_user = User(
+                    email="waris92",
+                    hashed_password=get_password_hash("waris92"),
+                    full_name="Waris Admin",
+                    is_active=True
+                )
+                db.add(new_user)
+                db.commit()
+                print("Default admin user (waris92 / waris92) initialized.")
+
+            co_count = db.query(Company).count()
+            if co_count == 0:
+                predefined_companies = [
+                    {"name": "Bayer", "logo": "Bayer.png"},
+                    {"name": "Chatta Seeds", "logo": "Chatta Seeds.png"},
+                    {"name": "Corteva (Pioneer)", "logo": "Corteva(Pioneer).png"},
+                    {"name": "Mercury", "logo": "Mercury.png"},
+                    {"name": "Monsanto", "logo": "Monsanto.png"},
+                    {"name": "Sohni Dharti", "logo": "Sohni Dharti.jpeg"},
+                    {"name": "Syngenta", "logo": "Syngenta.png"},
+                ]
+                for comp in predefined_companies:
+                    db.add(Company(name=comp["name"], logo=comp["logo"]))
+                db.commit()
+                print("Initial companies seeded.")
+            db.close()
+        except Exception as seed_err:
+            print(f"Seed note: {seed_err}")
     except Exception as e:
         print(f"Startup schema check note: {e}")
 

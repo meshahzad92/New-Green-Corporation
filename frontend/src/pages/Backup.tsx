@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 import api from '../utils/api';
 import { 
@@ -24,6 +24,13 @@ interface BackupStats {
   sales: number;
   stock_transactions: number;
   expenses: number;
+  notes?: number;
+  khata_accounts?: number;
+  khata_entries?: number;
+  company_khata_accounts?: number;
+  company_khata_entries?: number;
+  money_accounts?: number;
+  money_transactions?: number;
 }
 
 const Backup: React.FC = () => {
@@ -103,7 +110,11 @@ const Backup: React.FC = () => {
           products: Array.isArray(db.products) ? db.products.length : 0,
           sales: Array.isArray(db.sales) ? db.sales.length : 0,
           stock_transactions: Array.isArray(db.stock_transactions) ? db.stock_transactions.length : 0,
-          expenses: Array.isArray(db.expenses) ? db.expenses.length : 0
+          expenses: Array.isArray(db.expenses) ? db.expenses.length : 0,
+          notes: Array.isArray(db.notes) ? db.notes.length : 0,
+          khata_accounts: Array.isArray(db.khata_accounts) ? db.khata_accounts.length : 0,
+          company_khata_accounts: Array.isArray(db.company_khata_accounts) ? db.company_khata_accounts.length : 0,
+          money_accounts: Array.isArray(db.money_accounts) ? db.money_accounts.length : 0,
         };
 
         const totalRecords = Object.values(stats).reduce((a, b) => a + b, 0);
@@ -341,10 +352,34 @@ const Backup: React.FC = () => {
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Stock Logs</span>
                     <span className="font-black text-slate-800 dark:text-white">{fileStats.stock_transactions}</span>
                   </div>
-                  <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/60 col-span-2 sm:col-span-1">
+                  <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/60">
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Expenses</span>
                     <span className="font-black text-slate-800 dark:text-white">{fileStats.expenses}</span>
                   </div>
+                  {fileStats.khata_accounts !== undefined && fileStats.khata_accounts > 0 && (
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Dealers</span>
+                      <span className="font-black text-slate-800 dark:text-white">{fileStats.khata_accounts}</span>
+                    </div>
+                  )}
+                  {fileStats.company_khata_accounts !== undefined && fileStats.company_khata_accounts > 0 && (
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Co. Khata</span>
+                      <span className="font-black text-slate-800 dark:text-white">{fileStats.company_khata_accounts}</span>
+                    </div>
+                  )}
+                  {fileStats.money_accounts !== undefined && fileStats.money_accounts > 0 && (
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Money Accs</span>
+                      <span className="font-black text-slate-800 dark:text-white">{fileStats.money_accounts}</span>
+                    </div>
+                  )}
+                  {fileStats.notes !== undefined && fileStats.notes > 0 && (
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Notes</span>
+                      <span className="font-black text-slate-800 dark:text-white">{fileStats.notes}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
