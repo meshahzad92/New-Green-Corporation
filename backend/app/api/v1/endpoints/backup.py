@@ -686,18 +686,37 @@ def import_database_backup(
             acc_id = parse_uuid(cke.get("account_id"))
             comp_id = parse_uuid(cke.get("company_id"))
 
-            if acc_id and not db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == acc_id).first():
-                acc_id = None
+            # Resolve or auto-create a valid CompanyKhataAccount for foreign key integrity
+            target_acc = None
+            if acc_id:
+                target_acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == acc_id).first()
+
+            if not target_acc and comp_id:
+                target_acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.catalog_company_id == comp_id).first()
+
+            if not target_acc and comp_id:
+                comp_obj = db.query(Company).filter(Company.id == comp_id).first()
+                comp_name = comp_obj.name if comp_obj else "Imported Company Account"
+                target_acc = CompanyKhataAccount(
+                    id=uuid.uuid4(),
+                    name=comp_name,
+                    catalog_company_id=comp_id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(target_acc)
+                db.flush()
+
+            if not target_acc:
+                continue
+
+            resolved_acc_id = target_acc.id
+
             if comp_id and not db.query(Company).filter(Company.id == comp_id).first():
                 comp_id = None
 
-            if not acc_id and not comp_id:
-                continue
-
             existing = db.query(CompanyKhataEntry).filter(CompanyKhataEntry.id == cke_id).first()
             if existing:
-                if acc_id:
-                    existing.account_id = acc_id
+                existing.account_id = resolved_acc_id
                 if comp_id:
                     existing.company_id = comp_id
                 existing.entry_date = parse_dt(cke.get("entry_date")) or existing.entry_date
@@ -717,7 +736,7 @@ def import_database_backup(
             else:
                 new_cke = CompanyKhataEntry(
                     id=cke_id,
-                    account_id=acc_id or comp_id,
+                    account_id=resolved_acc_id,
                     company_id=comp_id,
                     entry_date=parse_dt(cke.get("entry_date")) or datetime.utcnow(),
                     entry_type=cke.get("entry_type", "PAYMENT"),
