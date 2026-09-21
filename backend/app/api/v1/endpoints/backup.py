@@ -348,12 +348,11 @@ def import_database_backup(
     }
 
     try:
-    company_id_map = {}
-    product_id_map = {}
-    dealer_id_map = {}
-    co_account_id_map = {}
+        company_id_map = {}
+        product_id_map = {}
+        dealer_id_map = {}
+        co_account_id_map = {}
 
-    try:
         # 1. Upsert Companies (with Name & ID deduplication)
         for c in companies_raw:
             c_id = parse_uuid(c.get("id")) or uuid.uuid4()
