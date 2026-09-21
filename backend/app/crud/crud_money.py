@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from app.models.models import MoneyAccount, MoneyTransaction
 from app.schemas.money import (
     MoneyAccountCreate, MoneyAccountUpdate,
@@ -19,13 +19,13 @@ def _compute_balance(account: MoneyAccount, db: Session) -> float:
     
     agg = db.query(
         func.coalesce(func.sum(
-            func.case(
+            case(
                 (MoneyTransaction.type.in_(['DEPOSIT', 'OPENING']), MoneyTransaction.amount),
                 else_=0
             )
         ), 0).label('total_in'),
         func.coalesce(func.sum(
-            func.case(
+            case(
                 (MoneyTransaction.type.in_(['WITHDRAWAL', 'COMPANY_PAYMENT']), MoneyTransaction.amount),
                 else_=0
             )
@@ -35,7 +35,7 @@ def _compute_balance(account: MoneyAccount, db: Session) -> float:
         MoneyTransaction.is_deleted == False
     ).one()
     
-    return round(opening + float(agg.total_in) - float(agg.total_out), 2)
+    return round(opening + float(agg.total_in or 0) - float(agg.total_out or 0), 2)
 
 
 def _to_account_out(account: MoneyAccount, db: Session) -> MoneyAccountOut:
