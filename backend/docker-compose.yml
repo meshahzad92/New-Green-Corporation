@@ -11,9 +11,8 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-    # Port mapping for AWS EC2 / host
-    ports:
-      - "8000:8000"
+    # Use host network on EC2 to connect to local PostgreSQL on localhost:5432
+    network_mode: host
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
