@@ -492,12 +492,12 @@ const Khata: React.FC = () => {
 
                       {/* Total Credit */}
                       <td className="px-6 py-4 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                        Rs. {formatAmount(dealer.total_credit)}
+                        {hasPending ? `Rs. ${formatAmount(dealer.total_credit)}` : <span className="text-slate-300 dark:text-slate-600 font-medium">—</span>}
                       </td>
 
                       {/* Total Recovery */}
-                      <td className="px-6 py-4 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                        Rs. {formatAmount(dealer.total_recovery)}
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <span className="text-slate-300 dark:text-slate-600 font-medium">—</span>
                       </td>
 
                       {/* Net Amount Left */}
@@ -638,13 +638,13 @@ const Khata: React.FC = () => {
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl">
                       <span className="text-slate-400 text-[10px] uppercase font-bold block">Credit</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
-                        Rs. {formatAmount(dealer.total_credit)}
+                        {hasPending ? `Rs. ${formatAmount(dealer.total_credit)}` : '—'}
                       </span>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl">
                       <span className="text-slate-400 text-[10px] uppercase font-bold block">Recovery</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        Rs. {formatAmount(dealer.total_recovery)}
+                      <span className="font-bold text-slate-400 font-medium">
+                        —
                       </span>
                     </div>
                   </div>
