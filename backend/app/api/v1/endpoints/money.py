@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.schemas.money import (
     MoneyAccountCreate, MoneyAccountUpdate, MoneyAccountOut,
     MoneyTransactionCreate, MoneyTransactionUpdate, MoneyTransactionOut,
-    MoneyAccountLedgerOut
+    MoneyTransferCreate, MoneyAccountLedgerOut
 )
 from app.crud import crud_money
 
@@ -47,13 +47,18 @@ def get_money_account_ledger(account_id: UUID, db: Session = Depends(get_db)):
     return crud_money.get_money_account_ledger(db, account_id)
 
 # ============================================================
-# Transactions
+# Transactions & Transfers
 # ============================================================
 
 @router.post("/transactions", response_model=MoneyTransactionOut, status_code=201)
 def create_money_transaction(data: MoneyTransactionCreate, db: Session = Depends(get_db)):
     """Record a DEPOSIT or WITHDRAWAL"""
     return crud_money.create_money_transaction(db, data)
+
+@router.post("/transfers", response_model=MoneyTransactionOut, status_code=201)
+def create_money_transfer(data: MoneyTransferCreate, db: Session = Depends(get_db)):
+    """Record a Transfer to a Company (syncs with Company Khata) or Person"""
+    return crud_money.create_money_transfer(db, data)
 
 @router.put("/transactions/{transaction_id}", response_model=MoneyTransactionOut)
 def update_money_transaction(transaction_id: UUID, data: MoneyTransactionUpdate, db: Session = Depends(get_db)):
@@ -64,3 +69,4 @@ def update_money_transaction(transaction_id: UUID, data: MoneyTransactionUpdate,
 def delete_money_transaction(transaction_id: UUID, db: Session = Depends(get_db)):
     """Soft delete a transaction"""
     return crud_money.delete_money_transaction(db, transaction_id)
+

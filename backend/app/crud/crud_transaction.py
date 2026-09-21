@@ -395,6 +395,52 @@ def update_sale(db: Session, sale_id: UUID, sale_update: transactions.SaleUpdate
         ).first()
         if db_stock_transaction:
             db_stock_transaction.created_at = sale_update.created_at
+
+    # 2-Way Sync: Automatically update associated Dealer KhataEntry if this sale is linked to one
+    from app.models.models import KhataEntry
+    linked_khata_entry = None
+    if db_sale.invoice_id:
+        linked_khata_entry = db.query(KhataEntry).filter(
+            KhataEntry.invoice_id == db_sale.invoice_id,
+            KhataEntry.is_deleted == False
+        ).first()
+    if not linked_khata_entry:
+        linked_khata_entry = db.query(KhataEntry).filter(
+            KhataEntry.sale_id == db_sale.id,
+            KhataEntry.is_deleted == False
+        ).first()
+
+    if linked_khata_entry:
+        if db_sale.invoice_id:
+            all_invoice_sales = db.query(Sale).filter(
+                Sale.invoice_id == db_sale.invoice_id,
+                Sale.is_deleted == False
+            ).all()
+        else:
+            all_invoice_sales = [db_sale]
+
+        # Recalculate total credit amount for the dealer entry
+        total_credit = sum(s.total_amount for s in all_invoice_sales)
+        linked_khata_entry.credit_amount = total_credit
+
+        # Re-build products_detail JSON array so dealer khata displays exact updated product & quantity
+        items_detail = []
+        for s in all_invoice_sales:
+            prod = db.query(Product).filter(Product.id == s.product_id).first()
+            items_detail.append({
+                "product_id": str(s.product_id),
+                "name": prod.name if prod else "Product",
+                "quantity": s.quantity,
+                "price": float(s.selling_price),
+                "total": float(s.total_amount)
+            })
+        linked_khata_entry.products_detail = items_detail
+
+        # Sync farmer name and sale date to dealer entry
+        if db_sale.farmer_name:
+            linked_khata_entry.farmer_name = db_sale.farmer_name
+        if sale_update.created_at is not None:
+            linked_khata_entry.entry_date = sale_update.created_at
     
     db.commit()
     db.refresh(db_sale)

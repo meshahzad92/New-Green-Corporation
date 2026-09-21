@@ -369,6 +369,122 @@ def update_entry(db: Session, entry_id: uuid.UUID, entry_in: KhataEntryUpdate) -
     if entry_in.products_detail is not None:
         entry.products_detail = entry_in.products_detail
 
+    # 2-Way Sync: Sync updates back to linked Sale and StockTransaction records if present
+    if entry.invoice_id or entry.sale_id:
+        existing_sales = []
+        if entry.invoice_id:
+            existing_sales = db.query(Sale).filter(Sale.invoice_id == entry.invoice_id, Sale.is_deleted == False).all()
+        elif entry.sale_id:
+            s = db.query(Sale).filter(Sale.id == entry.sale_id, Sale.is_deleted == False).first()
+            if s:
+                existing_sales = [s]
+
+        if entry_in.products_detail:
+            now_dt = entry_in.entry_date or entry.entry_date or datetime.utcnow()
+            dealer_acc = db.query(KhataAccount).filter(KhataAccount.id == entry.account_id).first()
+            dealer_name = dealer_acc.name if dealer_acc else ""
+            farmer_clean = entry_in.farmer_name or entry.farmer_name
+            cust_display = f"{dealer_name} (Farmer: {farmer_clean})" if farmer_clean else dealer_name
+            party_display = f"Credit: {dealer_name} -> {farmer_clean}" if farmer_clean else f"Credit: {dealer_name}"
+
+            existing_sales_map = {str(s.product_id): s for s in existing_sales}
+            new_item_prod_ids = set()
+
+            for item_dict in entry_in.products_detail:
+                prod_id_str = str(item_dict.get('product_id'))
+                qty = int(item_dict.get('quantity', 1))
+                price = Decimal(str(item_dict.get('price', 0)))
+                total = Decimal(str(item_dict.get('total', qty * price)))
+                new_item_prod_ids.add(prod_id_str)
+
+                try:
+                    p_uuid = uuid.UUID(prod_id_str)
+                except ValueError:
+                    continue
+
+                db_prod = db.query(Product).filter(Product.id == p_uuid).first()
+                purch_price = db_prod.purchase_price if db_prod else Decimal('0.00')
+
+                if prod_id_str in existing_sales_map:
+                    sale_row = existing_sales_map[prod_id_str]
+                    sale_row.quantity = qty
+                    sale_row.selling_price = price
+                    sale_row.total_amount = total
+                    sale_row.created_at = now_dt
+                    if farmer_clean:
+                        sale_row.farmer_name = farmer_clean
+                    sale_row.customer_name = cust_display
+
+                    stock_tx = db.query(StockTransaction).filter(
+                        StockTransaction.sale_id == sale_row.id,
+                        StockTransaction.is_deleted == False
+                    ).first()
+                    if stock_tx:
+                        stock_tx.quantity = qty
+                        stock_tx.created_at = now_dt
+                        stock_tx.party_name = party_display
+                else:
+                    inv_id = entry.invoice_id or str(uuid.uuid4())
+                    inv_no = f"INV-{now_dt.strftime('%y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+                    new_sale = Sale(
+                        product_id=p_uuid,
+                        customer_name=cust_display,
+                        customer_phone=dealer_acc.phone if dealer_acc else None,
+                        dealer_id=entry.account_id,
+                        dealer_name=dealer_name,
+                        farmer_name=farmer_clean,
+                        quantity=qty,
+                        selling_price=price,
+                        purchase_price=purch_price,
+                        total_amount=total,
+                        paid_amount=Decimal('0.00'),
+                        invoice_id=inv_id,
+                        invoice_no=inv_no,
+                        payment_type='Credit',
+                        created_at=now_dt
+                    )
+                    db.add(new_sale)
+                    db.flush()
+
+                    new_stock_tx = StockTransaction(
+                        product_id=p_uuid,
+                        quantity=qty,
+                        party_name=party_display,
+                        purchase_price=purch_price,
+                        mrp=db_prod.mrp if db_prod else None,
+                        company_discount=db_prod.company_discount if db_prod else None,
+                        type='OUT',
+                        sale_id=new_sale.id,
+                        created_at=now_dt
+                    )
+                    db.add(new_stock_tx)
+
+            for old_prod_id, old_sale in existing_sales_map.items():
+                if old_prod_id not in new_item_prod_ids:
+                    old_sale.is_deleted = True
+                    old_sale.deleted_at = datetime.utcnow()
+                    db.query(StockTransaction).filter(
+                        StockTransaction.sale_id == old_sale.id,
+                        StockTransaction.is_deleted == False
+                    ).update({"is_deleted": True, "deleted_at": datetime.utcnow()}, synchronize_session=False)
+
+        else:
+            for s in existing_sales:
+                if entry_in.entry_date is not None:
+                    s.created_at = entry_in.entry_date
+                    db.query(StockTransaction).filter(
+                        StockTransaction.sale_id == s.id,
+                        StockTransaction.is_deleted == False
+                    ).update({"created_at": entry_in.entry_date}, synchronize_session=False)
+
+                if entry_in.farmer_name is not None:
+                    s.farmer_name = entry_in.farmer_name
+
+                if entry_in.credit_amount is not None and len(existing_sales) == 1:
+                    s.total_amount = entry_in.credit_amount
+                    if s.quantity > 0:
+                        s.selling_price = entry_in.credit_amount / Decimal(str(s.quantity))
+
     db.commit()
     db.refresh(entry)
     return entry

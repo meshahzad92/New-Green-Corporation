@@ -550,8 +550,45 @@ To counteract Supabase cloud latency and accidental double-clicks:
   - **Foreign Key Re-mapping (`ID Maps`)**: If a company (e.g. pre-seeded `"Syngenta"`) or product already exists with a different UUID in the database, the importer reuses the existing record's UUID and maps all dependent backup records (`company_id`, `product_id`, `dealer_id`, `catalog_company_id`, etc.) to the existing record's UUID.
   - Completely eliminates company & product duplication when importing backups into fresh or initialized databases.
   - Added startup SQL query in `app/main.py` that automatically cleans up any unreferenced duplicate companies with identical names.
-
 - **Frontend & Deployment**:
   - Updated `frontend/src/utils/api.ts` fallback URL to `https://api.newgreencorporation.app/api/v1`.
   - Updated `.github/workflows/deploy-aws.yml` to include domain health checks (`https://api.newgreencorporation.app/api/v1/health`).
+
+### 28. **Money Account Balance & Opening Double-Counting Fix**
+- **Root Cause Resolution**:
+  - Previously, when an account was created with an opening balance (e.g. `7,379.00`), both `account.opening_balance` AND an `OPENING` transaction row were recorded.
+  - `_compute_balance()` and `get_money_account_ledger()` previously added both `account.opening_balance` AND the `OPENING` transaction in `total_in`, resulting in double-counting (`7,379 + 7,379 = 14,758`).
+- **Fix Implementation**:
+  - Updated `_compute_balance()` and `get_money_account_ledger()` in `crud_money.py` to dynamically check if an `OPENING` transaction row exists for the account (`has_opening_tx`).
+  - If `OPENING` transaction exists, `base_opening` starts at `0.0` so the `OPENING` transaction handles the balance.
+  - Replaced legacy `func.case()` calls with standard SQLAlchemy `case()` construct, preventing `TypeError` on server.
+
+### 29. **Money Ledger Controls (Editing & Deleting Any Transaction), Money Transfers (Company vs. Person), and Date Filtering**
+- **Full Transaction Control**:
+  - All transactions (including `OPENING` and `COMPANY_PAYMENT`) can now be edited or soft-deleted directly from the account ledger (`MoneyAccountDetail.tsx`).
+  - Editing or deleting a `COMPANY_PAYMENT` transaction automatically updates or soft-deletes the linked `CompanyKhataEntry` to maintain 2-way balance synchronization.
+  - Editing or deleting an `OPENING` transaction updates `account.opening_balance` dynamically.
+- **Money Transfers (Company vs. Person)**:
+  - Added dedicated **"Transfer"** button to both `/money` and `/money/:accountId`.
+  - Built `TransferMoneyModal.tsx` supporting 2 modes:
+    - **Company Transfer**: Select Company from dropdown, set Date, Amount, TID, and optional Details. Automatically creates a `WITHDRAWAL` transaction from bank/cash account and a 2-way synced `PAYMENT` entry in the selected Company's Khata account.
+    - **Person Transfer**: Specify Person Name, Account Name, Date, Amount, optional TID, and Details. Deducts money from bank/cash account balance.
+- **Date Filtering & Top Balance Banner**:
+  - `MoneyAccountDetail.tsx` features date filtering controls (All Dates, Today, Yesterday, This Month, Custom Date).
+  - Filtering updates table row visibility according to the chosen timeframe.
+  - The **Total Available Account Balance** is ALWAYS written prominently at the top header card regardless of date filter selection.
+
+### 30. **Automated 2-Way Synchronization on Credit Sale & Dealer Khata Edits**
+- **Sales $\rightarrow$ Dealer Khata Sync**:
+  - `update_sale()` in `backend/app/crud/crud_transaction.py` automatically checks if the edited sale belongs to a Dealer Khata entry (via `invoice_id` or `sale_id`).
+  - When product, quantity, rate, total amount, farmer name, or date are modified on a sale, the backend automatically recalculates the total credit amount and re-generates the `products_detail` JSON array for the linked `KhataEntry`.
+  - Ensures that editing any sale record dynamically updates the exact item names, quantities, totals, farmer name, and entry date shown in the Dealer's Khata statement.
+- **Dealer Khata $\rightarrow$ Sales & Stock Sync**:
+  - `update_entry()` in `backend/app/crud/crud_khata.py` automatically syncs changes made on a Khata entry back to the associated `Sale` and `StockTransaction` records.
+  - Updating `entry_date`, `farmer_name`, `credit_amount`, or `products_detail` from the Dealer Khata statement updates `Sale.created_at`, `Sale.farmer_name`, `Sale.selling_price`, `Sale.total_amount`, and linked `StockTransaction` quantities/dates.
+  - Preserves exact 2-way consistency across Sales, Inventory Stock, and Dealer Dues.
+
+
+
+
 

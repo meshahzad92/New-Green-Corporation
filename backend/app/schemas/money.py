@@ -39,6 +39,18 @@ class MoneyTransactionCreate(BaseModel):
     description: Optional[str] = None
     tid: Optional[str] = None  # Transaction ID / reference
 
+class MoneyTransferCreate(BaseModel):
+    account_id: UUID
+    transfer_to_type: str = Field(..., description="'COMPANY' or 'PERSON'")
+    company_khata_account_id: Optional[UUID] = None
+    person_name: Optional[str] = None
+    person_account: Optional[str] = None
+    amount: float = Field(..., gt=0)
+    transaction_date: Optional[datetime] = None
+    payment_method: Optional[str] = Field('ONLINE')
+    tid: Optional[str] = None
+    description: Optional[str] = None
+
 class MoneyTransactionUpdate(BaseModel):
     transaction_date: Optional[datetime] = None
     amount: Optional[float] = None

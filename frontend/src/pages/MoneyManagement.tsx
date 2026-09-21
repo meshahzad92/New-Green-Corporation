@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Banknote, Building2, Wallet, TrendingUp, TrendingDown,
-  Plus, Edit2, Trash2, Loader2, RefreshCw, ArrowRight
+  Plus, Edit2, Trash2, Loader2, RefreshCw, ArrowRight, Send
 } from 'lucide-react';
 import { moneyService, MoneyAccount } from '../utils/moneyApi';
 import AddMoneyAccountModal from '../components/AddMoneyAccountModal';
 import AddMoneyTransactionModal from '../components/AddMoneyTransactionModal';
+import TransferMoneyModal from '../components/TransferMoneyModal';
 import { formatAmount } from '../utils/formatters';
 
 const MoneyManagement: React.FC = () => {
@@ -21,6 +22,7 @@ const MoneyManagement: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [showAddTx, setShowAddTx] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [txAccount, setTxAccount] = useState<string>('');
   const [txType, setTxType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
 
@@ -85,6 +87,10 @@ const MoneyManagement: React.FC = () => {
         <div className="flex items-center gap-2">
           <button onClick={load} className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={() => { setTxAccount(accounts[0]?.id || ''); setShowTransfer(true); }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-xl shadow-lg transition">
+            <Send className="w-4 h-4" /> Transfer
           </button>
           <button onClick={() => setShowAddAccount(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg transition">
@@ -183,6 +189,10 @@ const MoneyManagement: React.FC = () => {
                   className="flex-1 py-1.5 text-xs font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50 rounded-lg flex items-center justify-center gap-1 transition">
                   <TrendingDown className="w-3.5 h-3.5" /> Withdraw
                 </button>
+                <button onClick={() => { setTxAccount(acc.id); setShowTransfer(true); }}
+                  className="flex-1 py-1.5 text-xs font-bold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50 rounded-lg flex items-center justify-center gap-1 transition">
+                  <Send className="w-3.5 h-3.5" /> Transfer
+                </button>
               </div>
 
               {/* Footer */}
@@ -239,6 +249,12 @@ const MoneyManagement: React.FC = () => {
         onSuccess={() => { setShowAddTx(false); load(); }}
         preselectedAccountId={txAccount}
         defaultType={txType}
+      />
+      <TransferMoneyModal
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        onSuccess={() => { setShowTransfer(false); load(); }}
+        preselectedAccountId={txAccount}
       />
     </div>
   );

@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Banknote, Building2, Wallet, TrendingUp, TrendingDown,
-  Edit2, Trash2, Loader2, RefreshCw, CreditCard
+  Edit2, Trash2, Loader2, RefreshCw, CreditCard, Send, Calendar, Filter
 } from 'lucide-react';
 import { moneyService, MoneyAccountLedger, MoneyTransaction } from '../utils/moneyApi';
 import AddMoneyTransactionModal from '../components/AddMoneyTransactionModal';
+import TransferMoneyModal from '../components/TransferMoneyModal';
+import CustomDatePicker from '../components/CustomDatePicker';
 import { formatAmount } from '../utils/formatters';
 
 const typeConfig: Record<string, { label: string; color: string; Icon: any }> = {
@@ -22,6 +24,8 @@ const formatDateStr = (iso: string) => {
   } catch { return iso; }
 };
 
+type DateFilterMode = 'ALL' | 'TODAY' | 'YESTERDAY' | 'THIS_MONTH' | 'CUSTOM';
+
 const MoneyAccountDetail: React.FC = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -31,9 +35,14 @@ const MoneyAccountDetail: React.FC = () => {
 
   const [showAddTx, setShowAddTx] = useState(false);
   const [addTxType, setAddTxType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
+  const [showTransfer, setShowTransfer] = useState(false);
   const [editTx, setEditTx] = useState<MoneyTransaction | null>(null);
   const [deleteTx, setDeleteTx] = useState<MoneyTransaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Date Filter State
+  const [dateFilter, setDateFilter] = useState<DateFilterMode>('ALL');
+  const [customDate, setCustomDate] = useState<Date | null>(new Date());
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -67,6 +76,40 @@ const MoneyAccountDetail: React.FC = () => {
 
   const isIncoming = (type: string) => ['DEPOSIT', 'OPENING'].includes(type);
 
+  // Filtered Transactions Calculation based on Date Filter
+  const filteredTransactions = useMemo(() => {
+    if (!ledger) return [];
+    if (dateFilter === 'ALL') return ledger.transactions;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return ledger.transactions.filter(t => {
+      const tDate = new Date(t.transaction_date);
+      const tDateStr = t.transaction_date.split('T')[0];
+
+      if (dateFilter === 'TODAY') {
+        return tDateStr === todayStr;
+      }
+      if (dateFilter === 'YESTERDAY') {
+        return tDateStr === yesterdayStr;
+      }
+      if (dateFilter === 'THIS_MONTH') {
+        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+      }
+      if (dateFilter === 'CUSTOM' && customDate) {
+        const customStr = customDate.toISOString().split('T')[0];
+        return tDateStr === customStr;
+      }
+      return true;
+    });
+  }, [ledger, dateFilter, customDate]);
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-64">
       <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
@@ -99,36 +142,129 @@ const MoneyAccountDetail: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={load} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Refresh">
             <RefreshCw className="w-4 h-4" />
           </button>
           <button onClick={() => { setAddTxType('DEPOSIT'); setShowAddTx(true); }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition">
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
             <TrendingUp className="w-3.5 h-3.5" /> Deposit
           </button>
           <button onClick={() => { setAddTxType('WITHDRAWAL'); setShowAddTx(true); }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition">
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
             <TrendingDown className="w-3.5 h-3.5" /> Withdraw
+          </button>
+          <button onClick={() => setShowTransfer(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-extrabold rounded-xl transition shadow-md">
+            <Send className="w-3.5 h-3.5" /> Transfer
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Total Deposits</p>
-          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">+ Rs. {formatAmount(ledger.total_deposits)}</p>
-        </div>
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-2xl p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">Total Withdrawals</p>
-          <p className="text-2xl font-black text-red-700 dark:text-red-300 mt-1">- Rs. {formatAmount(ledger.total_withdrawals)}</p>
-        </div>
-        <div className={`${acc.current_balance >= 0 ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/40' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40'} border rounded-2xl p-4`}>
-          <p className={`text-xs font-semibold uppercase tracking-wider ${acc.current_balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>Current Balance</p>
-          <p className={`text-2xl font-black mt-1 ${acc.current_balance >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}`}>
+      {/* Summary Banner (Total Available Balance ALWAYS Prominently Written at Top) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Main Available Balance Card */}
+        <div className="md:col-span-1 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white rounded-3xl p-6 shadow-xl border border-blue-900/50 relative overflow-hidden">
+          <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+          <p className="text-xs font-black uppercase tracking-wider text-blue-300 flex items-center gap-1.5">
+            <Wallet className="w-4 h-4" /> Available Account Balance
+          </p>
+          <p className="text-3xl sm:text-4xl font-black text-white mt-2 tracking-tight">
             Rs. {formatAmount(acc.current_balance)}
           </p>
+          <p className="text-xs text-blue-200/70 mt-2">
+            {acc.title} ({acc.bank_name || acc.account_type})
+          </p>
+        </div>
+
+        {/* Deposits & Withdrawals Cards */}
+        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-3xl p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Total Deposits</p>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300 mt-2">+ Rs. {formatAmount(ledger.total_deposits)}</p>
+            </div>
+            <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-2">All-time credited funds</p>
+          </div>
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-3xl p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Total Withdrawals & Payments</p>
+              <p className="text-2xl sm:text-3xl font-black text-red-700 dark:text-red-300 mt-2">- Rs. {formatAmount(ledger.total_withdrawals)}</p>
+            </div>
+            <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-2">All-time debited funds</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Date Filter Controls */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700 shadow-sm flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-slate-400" />
+          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filter History by Date:</span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setDateFilter('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
+              dateFilter === 'ALL'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            All Dates ({ledger.transactions.length})
+          </button>
+          <button
+            onClick={() => setDateFilter('TODAY')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
+              dateFilter === 'TODAY'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setDateFilter('YESTERDAY')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
+              dateFilter === 'YESTERDAY'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            Yesterday
+          </button>
+          <button
+            onClick={() => setDateFilter('THIS_MONTH')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
+              dateFilter === 'THIS_MONTH'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            This Month
+          </button>
+
+          {/* Custom Date Picker */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
+            <button
+              onClick={() => setDateFilter('CUSTOM')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition ${
+                dateFilter === 'CUSTOM' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 inline mr-1" /> Custom
+            </button>
+            {dateFilter === 'CUSTOM' && (
+              <div className="w-36">
+                <CustomDatePicker
+                  selectedDate={customDate}
+                  onChange={d => { setCustomDate(d); setDateFilter('CUSTOM'); }}
+                  maxDate={new Date()}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -136,14 +272,16 @@ const MoneyAccountDetail: React.FC = () => {
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 dark:text-white">Transaction History</h2>
-          <span className="text-xs text-slate-500 dark:text-slate-400">{ledger.transactions.length} entries</span>
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Showing {filteredTransactions.length} of {ledger.transactions.length} entries
+          </span>
         </div>
 
-        {ledger.transactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <div className="text-center py-12">
             <Banknote className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-            <p className="text-slate-500 dark:text-slate-400 font-medium">No transactions yet</p>
-            <p className="text-slate-400 dark:text-slate-500 text-sm">Use Deposit or Withdraw buttons to add entries</p>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">No transactions found for selected date filter</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm">Switch dates or add a new transaction above</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -155,26 +293,25 @@ const MoneyAccountDetail: React.FC = () => {
                   <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Description</th>
                   <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">TID</th>
                   <th className="text-right px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Amount</th>
-                  <th className="text-right px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Balance</th>
+                  <th className="text-right px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Running Balance</th>
                   <th className="text-center px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                {[...ledger.transactions].reverse().map(txn => {
+                {[...filteredTransactions].reverse().map(txn => {
                   const cfg = typeConfig[txn.type] || typeConfig.DEPOSIT;
                   const incoming = isIncoming(txn.type);
-                  const isEditable = txn.type !== 'OPENING' && txn.type !== 'COMPANY_PAYMENT';
                   return (
                     <tr key={txn.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs font-medium whitespace-nowrap">
                         {formatDateStr(txn.transaction_date)}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${cfg.color}`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${cfg.color}`}>
                           <cfg.Icon className="w-3 h-3" />{cfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs max-w-40 truncate">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs max-w-xs truncate" title={txn.description || ''}>
                         {txn.description || <span className="text-slate-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs font-mono">
@@ -190,20 +327,17 @@ const MoneyAccountDetail: React.FC = () => {
                           Rs. {formatAmount(txn.running_balance ?? 0)}
                         </span>
                       </td>
+                      {/* FULL TRANSACTION CONTROL: EDIT & DELETE EVERY TRANSACTION */}
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
-                          {isEditable && (
-                            <>
-                              <button onClick={() => { setEditTx(txn); setShowAddTx(true); }}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition">
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={() => setDeleteTx(txn)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
+                          <button onClick={() => { setEditTx(txn); setShowAddTx(true); }}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition" title="Edit transaction">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteTx(txn)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition" title="Delete transaction">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -221,7 +355,7 @@ const MoneyAccountDetail: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Transaction?</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              Delete this {typeConfig[deleteTx.type]?.label} of <span className="font-bold">Rs. {formatAmount(deleteTx.amount)}</span>? This will update the account balance.
+              Delete this {typeConfig[deleteTx.type]?.label || deleteTx.type} entry of <span className="font-bold">Rs. {formatAmount(deleteTx.amount)}</span>? This will automatically update your account balance and any linked khata entry.
             </p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteTx(null)} className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition">Cancel</button>
@@ -234,7 +368,7 @@ const MoneyAccountDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Transaction Modal */}
+      {/* Transaction Modal (Deposit / Withdraw / Edit) */}
       <AddMoneyTransactionModal
         isOpen={showAddTx}
         onClose={() => { setShowAddTx(false); setEditTx(null); }}
@@ -242,6 +376,14 @@ const MoneyAccountDetail: React.FC = () => {
         preselectedAccountId={accountId}
         editTransaction={editTx}
         defaultType={addTxType}
+      />
+
+      {/* Transfer Money Modal */}
+      <TransferMoneyModal
+        isOpen={showTransfer}
+        onClose={() => setShowTransfer(false)}
+        onSuccess={() => { setShowTransfer(false); load(); }}
+        preselectedAccountId={accountId}
       />
     </div>
   );

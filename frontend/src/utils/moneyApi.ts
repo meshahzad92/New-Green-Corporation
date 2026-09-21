@@ -35,6 +35,19 @@ export interface MoneyAccountLedger {
   current_balance: number;
 }
 
+export interface MoneyTransferData {
+  account_id: string;
+  transfer_to_type: 'COMPANY' | 'PERSON';
+  company_khata_account_id?: string;
+  person_name?: string;
+  person_account?: string;
+  amount: number;
+  transaction_date?: string;
+  payment_method?: string;
+  tid?: string;
+  description?: string;
+}
+
 export const moneyService = {
   getAccounts: (): Promise<MoneyAccount[]> =>
     api.get('/money/accounts').then(r => r.data),
@@ -72,6 +85,9 @@ export const moneyService = {
     tid?: string;
   }): Promise<MoneyTransaction> =>
     api.post('/money/transactions', data).then(r => r.data),
+
+  createTransfer: (data: MoneyTransferData): Promise<MoneyTransaction> =>
+    api.post('/money/transfers', data).then(r => r.data),
 
   updateTransaction: (id: string, data: {
     transaction_date?: string;

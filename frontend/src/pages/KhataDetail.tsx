@@ -30,7 +30,7 @@ import { formatDate, formatAmount } from '../utils/formatters';
 const KhataDetail: React.FC = () => {
   const { dealerId } = useParams<{ dealerId: string }>();
   const navigate = useNavigate();
-  const { refreshData } = useData();
+  const { products, refreshData } = useData();
 
   const [dealer, setDealer] = useState<KhataAccount | null>(null);
   const [ledger, setLedger] = useState<KhataEntry[]>([]);
@@ -51,10 +51,19 @@ const KhataDetail: React.FC = () => {
   const [isSubmittingManualCredit, setIsSubmittingManualCredit] = useState(false);
 
   // Edit Entry Modal
+  interface EditProductItem {
+    product_id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    total: number;
+  }
+
   const [editingEntry, setEditingEntry] = useState<KhataEntry | null>(null);
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [editFarmer, setEditFarmer] = useState('');
   const [editAmount, setEditAmount] = useState('');
+  const [editProducts, setEditProducts] = useState<EditProductItem[]>([]);
   const [editPaymentMethod, setEditPaymentMethod] = useState<'CASH' | 'ONLINE'>('CASH');
   const [editBankName, setEditBankName] = useState('');
   const [editRemarks, setEditRemarks] = useState('');
@@ -139,6 +148,29 @@ const KhataDetail: React.FC = () => {
     setEditPaymentMethod(entry.payment_method || 'CASH');
     setEditBankName(entry.bank_name || '');
     setEditRemarks(entry.remarks || '');
+
+    if (entry.entry_type === 'CREDIT') {
+      const items: EditProductItem[] = (entry.products_detail || []).map((p: any) => ({
+        product_id: p.product_id || (products.length > 0 ? products[0].id : ''),
+        name: p.name || (products.find(pr => pr.id === p.product_id)?.name || 'Product'),
+        quantity: p.quantity || 1,
+        price: p.price || 0,
+        total: p.total || ((p.quantity || 1) * (p.price || 0)),
+      }));
+
+      if (items.length === 0 && products.length > 0) {
+        items.push({
+          product_id: products[0].id,
+          name: products[0].name,
+          quantity: 1,
+          price: products[0].purchasePrice || 0,
+          total: products[0].purchasePrice || 0,
+        });
+      }
+      setEditProducts(items);
+    } else {
+      setEditProducts([]);
+    }
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -147,14 +179,34 @@ const KhataDetail: React.FC = () => {
 
     setIsSubmittingEdit(true);
     try {
-      const amt = parseFloat(editAmount) || 0;
+      let finalCreditAmt: number | undefined = undefined;
+      let finalProductsDetail: any[] | undefined = undefined;
+
+      if (editingEntry.entry_type === 'CREDIT') {
+        if (editProducts.length > 0) {
+          finalProductsDetail = editProducts.map(p => ({
+            product_id: p.product_id,
+            name: p.name,
+            quantity: p.quantity,
+            price: p.price,
+            total: p.quantity * p.price,
+          }));
+          finalCreditAmt = finalProductsDetail.reduce((sum, item) => sum + item.total, 0);
+        } else {
+          finalCreditAmt = parseFloat(editAmount) || 0;
+        }
+      }
+
+      const recAmt = editingEntry.entry_type === 'RECOVERY' ? (parseFloat(editAmount) || 0) : undefined;
+
       await khataService.updateEntry(editingEntry.id, {
         entry_date: editDate.toISOString(),
         farmer_name: editingEntry.entry_type === 'CREDIT' ? editFarmer.trim() : undefined,
-        credit_amount: editingEntry.entry_type === 'CREDIT' ? amt : undefined,
-        recovery_amount: editingEntry.entry_type === 'RECOVERY' ? amt : undefined,
+        credit_amount: finalCreditAmt,
+        recovery_amount: recAmt,
         payment_method: editingEntry.entry_type === 'RECOVERY' ? editPaymentMethod : undefined,
         bank_name: editingEntry.entry_type === 'RECOVERY' && editPaymentMethod === 'ONLINE' ? editBankName.trim() : undefined,
+        products_detail: finalProductsDetail,
         remarks: editRemarks.trim() || undefined
       });
       setEditingEntry(null);
@@ -662,56 +714,187 @@ const KhataDetail: React.FC = () => {
       {/* Edit Entry Modal */}
       {editingEntry && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5">
+          <div className={`bg-white dark:bg-slate-900 w-full rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-5 overflow-y-auto max-h-[90vh] ${
+            editingEntry.entry_type === 'CREDIT' && editProducts.length > 0 ? 'max-w-2xl' : 'max-w-md'
+          }`}>
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">
                 Edit {editingEntry.entry_type === 'CREDIT' ? 'Credit Entry' : 'Recovery Entry'}
               </h3>
               <p className="text-xs text-slate-400 font-bold mt-1">
-                Update date, amount, or remarks for this record
+                Update entry details, date, items, or remarks for this record
               </p>
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-                  Date
-                </label>
-                <CustomDatePicker
-                  selected={editDate}
-                  onChange={(d) => setEditDate(d || new Date())}
-                  placeholderText="Select date..."
-                />
-              </div>
-
-              {editingEntry.entry_type === 'CREDIT' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Farmer Name
+                    Entry Date
+                  </label>
+                  <CustomDatePicker
+                    selected={editDate}
+                    onChange={(d) => setEditDate(d || new Date())}
+                    placeholderText="Select date..."
+                  />
+                </div>
+
+                {editingEntry.entry_type === 'CREDIT' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      Farmer Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editFarmer}
+                      onChange={(e) => setEditFarmer(e.target.value)}
+                      placeholder="e.g. Farmer / Customer name"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Product Items Table (For Credit Entries) */}
+              {editingEntry.entry_type === 'CREDIT' && editProducts.length > 0 ? (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Package className="w-3.5 h-3.5 text-rose-500" /> Particulars & Product Items
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (products.length > 0) {
+                          setEditProducts([
+                            ...editProducts,
+                            {
+                              product_id: products[0].id,
+                              name: products[0].name,
+                              quantity: 1,
+                              price: products[0].purchasePrice || 0,
+                              total: products[0].purchasePrice || 0
+                            }
+                          ]);
+                        }
+                      }}
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Product
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    {editProducts.map((item, idx) => (
+                      <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={item.product_id}
+                            onChange={(e) => {
+                              const selectedProd = products.find(p => p.id === e.target.value);
+                              const updated = [...editProducts];
+                              updated[idx] = {
+                                ...updated[idx],
+                                product_id: e.target.value,
+                                name: selectedProd ? selectedProd.name : 'Product',
+                                price: selectedProd ? (selectedProd.mrp || selectedProd.purchasePrice || 0) : updated[idx].price
+                              };
+                              updated[idx].total = updated[idx].quantity * updated[idx].price;
+                              setEditProducts(updated);
+                            }}
+                            className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500"
+                          >
+                            {products.map(prod => (
+                              <option key={prod.id} value={prod.id}>
+                                {prod.name} ({prod.category || 'Product'})
+                              </option>
+                            ))}
+                          </select>
+                          {editProducts.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditProducts(editProducts.filter((_, i) => i !== idx));
+                              }}
+                              className="p-2 text-slate-400 hover:text-rose-600 transition"
+                              title="Remove line"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 items-center">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Quantity</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const qty = parseInt(e.target.value) || 0;
+                                const updated = [...editProducts];
+                                updated[idx].quantity = qty;
+                                updated[idx].total = qty * updated[idx].price;
+                                setEditProducts(updated);
+                              }}
+                              className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Rate (Rs.)</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={item.price}
+                              onChange={(e) => {
+                                const price = parseFloat(e.target.value) || 0;
+                                const updated = [...editProducts];
+                                updated[idx].price = price;
+                                updated[idx].total = updated[idx].quantity * price;
+                                setEditProducts(updated);
+                              }}
+                              className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
+                            />
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Line Total</span>
+                            <span className="text-sm font-black text-rose-600 dark:text-rose-400">
+                              Rs. {formatAmount(item.quantity * item.price)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calculated Credit Total Card */}
+                  <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-2xl flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-rose-700 dark:text-rose-300">Total Credit Dues:</span>
+                    <span className="text-xl font-black text-rose-700 dark:text-rose-300">
+                      Rs. {formatAmount(editProducts.reduce((sum, item) => sum + (item.quantity * item.price), 0))}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    {editingEntry.entry_type === 'CREDIT' ? 'Credit Amount (Rs.)' : 'Recovery Amount (Rs.)'}
                   </label>
                   <input
-                    type="text"
-                    value={editFarmer}
-                    onChange={(e) => setEditFarmer(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-rose-500"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white outline-none focus:border-rose-500"
+                    required
                   />
                 </div>
               )}
-
-              <div className="space-y-1">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-                  {editingEntry.entry_type === 'CREDIT' ? 'Credit Amount (Rs.)' : 'Recovery Amount (Rs.)'}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white outline-none focus:border-rose-500"
-                  required
-                />
-              </div>
 
               {editingEntry.entry_type === 'RECOVERY' && (
                 <div className="space-y-2">
