@@ -1,0 +1,68 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-aws.yml'
+  workflow_dispatch: # Allows manual one-click trigger from GitHub Actions tab
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            echo "========================================================"
+            echo "🚀 Starting Automated Deployment to AWS EC2"
+            echo "========================================================"
+            
+            # Navigate to project directory (supports standard home or repo path)
+            if [ -d "$HOME/New-Green-Corporation" ]; then
+              cd "$HOME/New-Green-Corporation"
+            elif [ -d "/home/${{ secrets.EC2_USERNAME }}/New-Green-Corporation" ]; then
+              cd "/home/${{ secrets.EC2_USERNAME }}/New-Green-Corporation"
+            else
+              echo "❌ Error: New-Green-Corporation directory not found on server!"
+              exit 1
+            fi
+            
+            echo "🔄 Pulling latest code from GitHub main branch..."
+            git pull origin main
+            
+            cd backend
+            
+            echo "🐳 Stopping previous container..."
+            docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true
+            
+            echo "🔨 Building Docker image and starting container..."
+            docker compose up -d --build 2>/dev/null || docker-compose up -d --build
+            
+            echo "⏳ Waiting for database initialization and server startup (15 seconds)..."
+            sleep 15
+            
+            echo "📊 Container status:"
+            docker compose ps 2>/dev/null || docker-compose ps
+            
+            echo "🏥 Verifying API health check..."
+            curl -f http://localhost:8000/api/v1/health && echo "✅ API is up and healthy!" || echo "⚠️ Warning: Health check endpoint did not return 200"
+            
+            echo "🧹 Cleaning up dangling Docker images..."
+            docker image prune -f
+            
+            echo "📋 Recent container logs:"
+            docker compose logs --tail 30 2>/dev/null || docker-compose logs --tail 30
+            
+            echo "========================================================"
+            echo "🎉 AWS Deployment Completed Successfully!"
+            echo "========================================================"
