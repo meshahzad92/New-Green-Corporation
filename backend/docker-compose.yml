@@ -20,3 +20,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  # Caddy Reverse Proxy for Automatic HTTPS / SSL
+  caddy:
+    image: caddy:2-alpine
+    container_name: agrimanage-caddy
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
+

@@ -59,7 +59,8 @@ jobs:
             docker compose ps 2>/dev/null || docker-compose ps
             
             echo "🏥 Verifying API health check..."
-            curl -f http://localhost:8000/api/v1/health && echo "✅ API is up and healthy!" || echo "⚠️ Warning: Health check endpoint did not return 200"
+            curl -f http://localhost:8000/api/v1/health && echo "✅ Local API is up and healthy!" || echo "⚠️ Warning: Local health check endpoint did not return 200"
+            curl -f -k https://api.newgreencorporation.app/api/v1/health && echo "🔒 HTTPS Domain API (api.newgreencorporation.app) is reachable!" || echo "ℹ️ Domain HTTPS check pending DNS update/propagation."
             
             echo "🧹 Cleaning up dangling Docker images..."
             docker image prune -f
