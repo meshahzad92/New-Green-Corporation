@@ -34,6 +34,7 @@ def startup_event():
 
         # 2. Non-destructive migrations and compatibility checks
         with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo TEXT;"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12, 2);"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_id VARCHAR(50);"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(50);"))

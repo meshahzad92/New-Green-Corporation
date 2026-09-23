@@ -30,6 +30,7 @@ import CompanyPaymentModal from '../components/CompanyPaymentModal';
 import CompanyPurchaseModal from '../components/CompanyPurchaseModal';
 import CustomDatePicker from '../components/CustomDatePicker';
 import { formatDate, formatAmount } from '../utils/formatters';
+import { resolveCompanyLogo } from '../utils/logoHelper';
 
 const CompanyKhataDetail: React.FC = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -209,12 +210,15 @@ const CompanyKhataDetail: React.FC = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center font-black text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-base shadow-sm">
-              {ledgerData.company_logo ? (
-                <img src={`/logos/${ledgerData.company_logo}`} alt={ledgerData.company_name} className="w-full h-full object-contain p-1 rounded-2xl" />
-              ) : (
-                ledgerData.company_name.slice(0, 2).toUpperCase()
-              )}
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center font-black text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-base shadow-sm overflow-hidden">
+              {(() => {
+                const logo = resolveCompanyLogo(ledgerData.company_logo, ledgerData.company_name);
+                return logo ? (
+                  <img src={logo} alt={ledgerData.company_name} className="w-full h-full object-contain p-1 rounded-2xl" />
+                ) : (
+                  ledgerData.company_name.slice(0, 2).toUpperCase()
+                );
+              })()}
             </div>
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">

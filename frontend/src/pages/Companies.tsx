@@ -5,6 +5,7 @@ import { useData } from '../context/DataContext';
 import { Plus, Edit2, Trash2, Building2, Search, X, Image as ImageIcon, Upload } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatDate } from '../utils/formatters';
+import { resolveCompanyLogo } from '../utils/logoHelper';
 
 
 const Companies: React.FC = () => {
@@ -14,7 +15,7 @@ const Companies: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string>('');
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [existingLogo, setExistingLogo] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,27 +34,49 @@ const Companies: React.FC = () => {
     message: ''
   });
 
-
   const filteredCompanies = companies.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Dynamic logo loading using Vite's glob import
-  const logoModules = import.meta.glob('../logos/*.{png,jpg,jpeg,svg,webp}', { eager: true });
+  const compressImageToDataUrl = (file: File, maxSize = 256): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
 
-  const getCompanyLogoByFilename = (filename: string) => {
-    const entry = Object.entries(logoModules).find(([path]) => path.endsWith('/' + filename));
-    return entry ? (entry[1] as any).default : null;
-  };
+          if (width > height) {
+            if (width > maxSize) {
+              height = Math.round((height * maxSize) / width);
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = Math.round((width * maxSize) / height);
+              height = maxSize;
+            }
+          }
 
-  const getCompanyLogo = (companyName: string) => {
-    // Try to find a logo that matches the company name (ignoring case and extension)
-    const logoEntry = Object.entries(logoModules).find(([path]) => {
-      const fileName = path.split('/').pop()?.split('.')[0].toLowerCase();
-      return fileName === companyName.toLowerCase();
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(reader.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/png', 0.9));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
     });
-
-    return logoEntry ? (logoEntry[1] as any).default : null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,8 +87,8 @@ const Companies: React.FC = () => {
     try {
       let finalLogo: string | undefined = undefined;
 
-      if (logoFile) {
-        finalLogo = await uploadCompanyLogo(logoFile);
+      if (logoDataUrl) {
+        finalLogo = logoDataUrl;
       } else if (editingId && existingLogo) {
         finalLogo = existingLogo;
       }
@@ -90,9 +113,9 @@ const Companies: React.FC = () => {
     setExistingLogo(company.logo || '');
     
     // Set logo preview if available
-    const existingLogoUrl = company.logo ? getCompanyLogoByFilename(company.logo) : getCompanyLogo(company.name);
+    const existingLogoUrl = resolveCompanyLogo(company.logo, company.name);
     setLogoPreview(existingLogoUrl || '');
-    setLogoFile(null);
+    setLogoDataUrl('');
     
     setIsModalOpen(true);
   };
@@ -131,7 +154,7 @@ const Companies: React.FC = () => {
   const handleClose = () => {
     setEditingId(null);
     setName('');
-    setLogoFile(null);
+    setLogoDataUrl('');
     setLogoPreview('');
     setExistingLogo('');
     setIsModalOpen(false);
@@ -167,7 +190,7 @@ const Companies: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCompanies.map((company) => {
-            const logo = company.logo ? getCompanyLogoByFilename(company.logo) : getCompanyLogo(company.name);
+            const logo = resolveCompanyLogo(company.logo, company.name);
             return (
               <div
                 key={company.id}
@@ -253,11 +276,22 @@ const Companies: React.FC = () => {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      setLogoFile(file);
-                      setLogoPreview(URL.createObjectURL(file));
+                      try {
+                        const compressed = await compressImageToDataUrl(file);
+                        setLogoDataUrl(compressed);
+                        setLogoPreview(compressed);
+                      } catch {
+                        const r = new FileReader();
+                        r.onload = () => {
+                          const str = r.result as string;
+                          setLogoDataUrl(str);
+                          setLogoPreview(str);
+                        };
+                        r.readAsDataURL(file);
+                      }
                     }
                   }}
                 />

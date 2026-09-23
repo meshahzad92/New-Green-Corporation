@@ -23,6 +23,7 @@ import {
 import { companyKhataService, CompanyKhataOverview, CompanyAccount } from '../utils/companyKhataApi';
 import CompanyPaymentModal from '../components/CompanyPaymentModal';
 import CompanyPurchaseModal from '../components/CompanyPurchaseModal';
+import { resolveCompanyLogo } from '../utils/logoHelper';
 import AddCompanyAccountModal from '../components/AddCompanyAccountModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatAmount } from '../utils/formatters';
@@ -445,12 +446,15 @@ const CompanyKhata: React.FC = () => {
                       {/* Company Info */}
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center font-black text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-xs shadow-sm flex-shrink-0">
-                            {c.company_logo ? (
-                              <img src={`/logos/${c.company_logo}`} alt={displayName} className="w-full h-full object-contain p-1 rounded-xl" />
-                            ) : (
-                              displayName.slice(0, 2).toUpperCase()
-                            )}
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center font-black text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-xs shadow-sm flex-shrink-0 overflow-hidden">
+                            {(() => {
+                              const logo = resolveCompanyLogo(c.company_logo, displayName);
+                              return logo ? (
+                                <img src={logo} alt={displayName} className="w-full h-full object-contain p-1 rounded-xl" />
+                              ) : (
+                                displayName.slice(0, 2).toUpperCase()
+                              );
+                            })()}
                           </div>
                           <div>
                             <div className="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
@@ -558,12 +562,15 @@ const CompanyKhata: React.FC = () => {
                   {/* Top info */}
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center font-black text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-sm shadow-sm">
-                        {c.company_logo ? (
-                          <img src={`/logos/${c.company_logo}`} alt={displayName} className="w-full h-full object-contain p-1 rounded-2xl" />
-                        ) : (
-                          displayName.slice(0, 2).toUpperCase()
-                        )}
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center font-black text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-sm shadow-sm overflow-hidden">
+                        {(() => {
+                          const logo = resolveCompanyLogo(c.company_logo, displayName);
+                          return logo ? (
+                            <img src={logo} alt={displayName} className="w-full h-full object-contain p-1 rounded-2xl" />
+                          ) : (
+                            displayName.slice(0, 2).toUpperCase()
+                          );
+                        })()}
                       </div>
                       <div>
                         <h3 className="font-black text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
