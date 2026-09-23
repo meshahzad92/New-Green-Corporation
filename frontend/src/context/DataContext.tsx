@@ -186,8 +186,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const aggregatedTotalIn = candidates.reduce((sum, c) => sum + c.totalIn, 0);
           const aggregatedTotalOut = candidates.reduce((sum, c) => sum + c.totalOut, 0);
           const aggregatedRemaining = candidates.reduce((sum, c) => sum + c.remaining, 0);
+          const bestMrp = primary.product.mrp || candidates.find(c => c.product.mrp && c.product.mrp > 0)?.product.mrp;
 
-          deduplicatedProducts.push(primary.product);
+          deduplicatedProducts.push({
+            ...primary.product,
+            mrp: bestMrp || primary.product.mrp
+          });
           deduplicatedStocks.push({
             productId: primary.product.id,
             totalIn: aggregatedTotalIn,

@@ -308,12 +308,9 @@ const Products: React.FC = () => {
                           <p className="font-bold text-slate-900 dark:text-white text-base leading-tight">{product.name}</p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-md font-black uppercase">{product.category}</span>
-                            {product.purchasePrice > 0 && (
+                            {product.mrp && product.mrp > 0 && (
                               <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                                Cost: Rs. {formatAmount(product.purchasePrice)}
-                                {product.mrp && product.mrp > 0 && product.companyDiscount && product.companyDiscount > 0 && (
-                                  <span className="text-slate-400 font-normal"> (MRP Rs. {formatAmount(product.mrp)} − {product.companyDiscount}%)</span>
-                                )}
+                                MRP: Rs. {formatAmount(product.mrp)}
                               </span>
                             )}
                           </div>
