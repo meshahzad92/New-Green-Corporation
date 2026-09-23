@@ -15,14 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
+      - name: Deploy to EC2 via native SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ~/.ssh/id_rsa -p 22 "$SSH_USER@$SSH_HOST" bash -s << 'EOF'
+            set -e
             echo "========================================================"
             echo "🚀 Starting Automated Deployment to AWS EC2"
             echo "========================================================"
@@ -32,10 +35,10 @@ jobs:
               cd "$HOME/New-Green-Corporation"
             elif [ -d "$HOME/new-green-corporation" ]; then
               cd "$HOME/new-green-corporation"
-            elif [ -d "/home/${{ secrets.EC2_USERNAME }}/New-Green-Corporation" ]; then
-              cd "/home/${{ secrets.EC2_USERNAME }}/New-Green-Corporation"
-            elif [ -d "/home/${{ secrets.EC2_USERNAME }}/new-green-corporation" ]; then
-              cd "/home/${{ secrets.EC2_USERNAME }}/new-green-corporation"
+            elif [ -d "/home/$USER/New-Green-Corporation" ]; then
+              cd "/home/$USER/New-Green-Corporation"
+            elif [ -d "/home/$USER/new-green-corporation" ]; then
+              cd "/home/$USER/new-green-corporation"
             else
               echo "❌ Error: New-Green-Corporation directory not found on server!"
               exit 1
@@ -71,3 +74,4 @@ jobs:
             echo "========================================================"
             echo "🎉 AWS Deployment Completed Successfully!"
             echo "========================================================"
+          EOF
