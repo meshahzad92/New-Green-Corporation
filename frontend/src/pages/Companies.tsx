@@ -2,18 +2,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { Plus, Edit2, Trash2, Building2, Search, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Search, X, Image as ImageIcon, Upload } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatDate } from '../utils/formatters';
 
 
 const Companies: React.FC = () => {
-  const { companies, addCompany, updateCompany, deleteCompany, products } = useData();
+  const { companies, addCompany, updateCompany, uploadCompanyLogo, deleteCompany, products } = useData();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [existingLogo, setExistingLogo] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Confirmation dialog state
@@ -38,6 +41,11 @@ const Companies: React.FC = () => {
   // Dynamic logo loading using Vite's glob import
   const logoModules = import.meta.glob('../logos/*.{png,jpg,jpeg,svg,webp}', { eager: true });
 
+  const getCompanyLogoByFilename = (filename: string) => {
+    const entry = Object.entries(logoModules).find(([path]) => path.endsWith('/' + filename));
+    return entry ? (entry[1] as any).default : null;
+  };
+
   const getCompanyLogo = (companyName: string) => {
     // Try to find a logo that matches the company name (ignoring case and extension)
     const logoEntry = Object.entries(logoModules).find(([path]) => {
@@ -54,10 +62,18 @@ const Companies: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      let finalLogo: string | undefined = undefined;
+
+      if (logoFile) {
+        finalLogo = await uploadCompanyLogo(logoFile);
+      } else if (editingId && existingLogo) {
+        finalLogo = existingLogo;
+      }
+
       if (editingId) {
-        await updateCompany(editingId, name.trim());
+        await updateCompany(editingId, name.trim(), finalLogo);
       } else {
-        await addCompany(name.trim());
+        await addCompany(name.trim(), finalLogo);
       }
       handleClose();
     } catch (err) {
@@ -67,10 +83,17 @@ const Companies: React.FC = () => {
     }
   };
 
-  const handleEdit = (e: React.MouseEvent, id: string, currentName: string) => {
+  const handleEdit = (e: React.MouseEvent, company: any) => {
     e.stopPropagation();
-    setEditingId(id);
-    setName(currentName);
+    setEditingId(company.id);
+    setName(company.name);
+    setExistingLogo(company.logo || '');
+    
+    // Set logo preview if available
+    const existingLogoUrl = company.logo ? getCompanyLogoByFilename(company.logo) : getCompanyLogo(company.name);
+    setLogoPreview(existingLogoUrl || '');
+    setLogoFile(null);
+    
     setIsModalOpen(true);
   };
 
@@ -108,6 +131,9 @@ const Companies: React.FC = () => {
   const handleClose = () => {
     setEditingId(null);
     setName('');
+    setLogoFile(null);
+    setLogoPreview('');
+    setExistingLogo('');
     setIsModalOpen(false);
   };
 
@@ -141,7 +167,7 @@ const Companies: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCompanies.map((company) => {
-            const logo = getCompanyLogo(company.name);
+            const logo = company.logo ? getCompanyLogoByFilename(company.logo) : getCompanyLogo(company.name);
             return (
               <div
                 key={company.id}
@@ -164,7 +190,7 @@ const Companies: React.FC = () => {
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={(e) => handleEdit(e, company.id, company.name)}
+                      onClick={(e) => handleEdit(e, company)}
                       className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -200,6 +226,42 @@ const Companies: React.FC = () => {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Company Logo (Optional)</label>
+                <div 
+                  onClick={() => document.getElementById('logo-upload-input')?.click()}
+                  className="relative w-full h-36 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-all overflow-hidden"
+                >
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Logo preview" className="w-full h-full object-contain p-3" />
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-xs font-bold">Click to upload logo</p>
+                      <p className="text-[10px] font-medium opacity-60">PNG, JPG, SVG</p>
+                    </div>
+                  )}
+                  {logoPreview && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-xs font-black flex items-center gap-1"><Upload className="w-4 h-4" /> Change</span>
+                    </div>
+                  )}
+                </div>
+                <input
+                  id="logo-upload-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setLogoFile(file);
+                      setLogoPreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+              </div>
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Partner Company Name</label>
                 <input

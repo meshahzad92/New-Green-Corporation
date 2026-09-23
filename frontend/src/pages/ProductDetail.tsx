@@ -45,31 +45,22 @@ const ProductDetail: React.FC = () => {
     if (latestRefill && latestRefill.purchasePrice > 0) {
       return latestRefill.purchasePrice;
     }
-    if (productLogs.length === 0) {
-      return 0;
-    }
     return product?.purchasePrice || 0;
-  }, [latestRefill, productLogs, product?.purchasePrice]);
+  }, [latestRefill, product?.purchasePrice]);
 
   const latestMrp = useMemo(() => {
-    if (latestRefill && latestRefill.mrp !== undefined) {
+    if (latestRefill && latestRefill.mrp !== undefined && latestRefill.mrp !== null) {
       return latestRefill.mrp;
     }
-    if (productLogs.length === 0) {
-      return undefined;
-    }
     return product?.mrp;
-  }, [latestRefill, productLogs, product?.mrp]);
+  }, [latestRefill, product?.mrp]);
 
   const latestDiscount = useMemo(() => {
-    if (latestRefill && latestRefill.companyDiscount !== undefined) {
+    if (latestRefill && latestRefill.companyDiscount !== undefined && latestRefill.companyDiscount !== null) {
       return latestRefill.companyDiscount;
     }
-    if (productLogs.length === 0) {
-      return undefined;
-    }
     return product?.companyDiscount;
-  }, [latestRefill, productLogs, product?.companyDiscount]);
+  }, [latestRefill, product?.companyDiscount]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
@@ -134,6 +125,7 @@ const ProductDetail: React.FC = () => {
     partyName: '',
     customerName: ''
   });
+
 
   if (!product) return null;
 
@@ -470,7 +462,7 @@ const ProductDetail: React.FC = () => {
                   }}
                   className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
                 >
-                  {showDiscount ? '− Hide Discount' : '% Discount (Optional)'}
+                  {showDiscount ? 'âˆ’ Hide Discount' : '% Discount (Optional)'}
                 </button>
               </div>
 
@@ -520,11 +512,11 @@ const ProductDetail: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
-                        {calculatedPurchaseCost !== null ? `Rs. ${calculatedPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                        {calculatedPurchaseCost !== null ? `Rs. ${calculatedPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'â€”'}
                       </p>
                       {calculatedPurchaseCost !== null && addMrp && addDiscount && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                          Rs. {formatAmount(parseFloat(addMrp))} − {parseFloat(addDiscount)}%
+                          Rs. {formatAmount(parseFloat(addMrp))} âˆ’ {parseFloat(addDiscount)}%
                         </p>
                       )}
                     </div>
@@ -669,7 +661,7 @@ const ProductDetail: React.FC = () => {
                   }}
                   className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
                 >
-                  {editRefillModal.showDiscount ? '− Hide Discount' : '% Discount (Optional)'}
+                  {editRefillModal.showDiscount ? 'âˆ’ Hide Discount' : '% Discount (Optional)'}
                 </button>
               </div>
 
@@ -719,11 +711,11 @@ const ProductDetail: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
-                        {calculatedEditPurchaseCost !== null ? `Rs. ${calculatedEditPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                        {calculatedEditPurchaseCost !== null ? `Rs. ${calculatedEditPurchaseCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'â€”'}
                       </p>
                       {calculatedEditPurchaseCost !== null && editRefillModal.mrp && editRefillModal.discount && (
                         <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                          Rs. {formatAmount(parseFloat(editRefillModal.mrp))} − {parseFloat(editRefillModal.discount)}%
+                          Rs. {formatAmount(parseFloat(editRefillModal.mrp))} âˆ’ {parseFloat(editRefillModal.discount)}%
                         </p>
                       )}
                     </div>

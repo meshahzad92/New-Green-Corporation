@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from app.db.session import get_db
 from app.schemas.transactions import Sale, SaleCreate, SaleUpdate, StockTransaction, StockTransactionCreate, StockTransactionUpdate, BulkSaleCreate
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.get("/transactions", response_model=List[StockTransaction])
 def read_transactions(
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
@@ -44,7 +44,7 @@ def update_transaction(
 @router.get("/sales", response_model=List[Sale])
 def read_sales(
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):

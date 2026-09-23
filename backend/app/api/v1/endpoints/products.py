@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from app.db.session import get_db
 from app.schemas.product import Product, ProductCreate, ProductUpdate
@@ -38,7 +38,7 @@ def update_product(
 @router.get("/", response_model=List[Product])
 def read_products(
     skip: int = 0, 
-    limit: int = 100, 
+    limit: Optional[int] = None, 
     search: str = None, 
     category: str = None, 
     db: Session = Depends(get_db),

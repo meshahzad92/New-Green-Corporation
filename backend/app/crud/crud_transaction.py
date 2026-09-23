@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.models import StockTransaction, Sale, Product
@@ -23,14 +24,19 @@ def get_product_stock(db: Session, product_id: UUID):
     return int(in_stock - out_stock)
 
 # --- Stock Transaction CRUD ---
-def get_transactions(db: Session, skip: int = 0, limit: int = 100, include_deleted: bool = False):
+def get_transactions(db: Session, skip: int = 0, limit: Optional[int] = None, include_deleted: bool = False):
     """Get stock transactions, by default excludes soft-deleted records (most recent first)"""
     query = db.query(StockTransaction).filter(StockTransaction.product_id != None)
     
     if not include_deleted:
         query = query.filter(StockTransaction.is_deleted == False)
     
-    return query.order_by(StockTransaction.created_at.desc()).offset(skip).limit(limit).all()
+    query = query.order_by(StockTransaction.created_at.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None and limit > 0:
+        query = query.limit(limit)
+    return query.all()
 
 def create_transaction(db: Session, transaction: transactions.StockTransactionCreate):
     db_product = db.query(Product).filter(Product.id == transaction.product_id).first()
@@ -142,14 +148,19 @@ def delete_transaction(db: Session, transaction_id: UUID):
     return db_transaction
 
 # --- Sales CRUD ---
-def get_sales(db: Session, skip: int = 0, limit: int = 100, include_deleted: bool = False):
+def get_sales(db: Session, skip: int = 0, limit: Optional[int] = None, include_deleted: bool = False):
     """Get sales, by default excludes soft-deleted records (most recent first)"""
     query = db.query(Sale).filter(Sale.product_id != None)
     
     if not include_deleted:
         query = query.filter(Sale.is_deleted == False)
     
-    return query.order_by(Sale.created_at.desc()).offset(skip).limit(limit).all()
+    query = query.order_by(Sale.created_at.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None and limit > 0:
+        query = query.limit(limit)
+    return query.all()
 
 def create_sale(db: Session, sale: transactions.SaleCreate):
     # Idempotency / deduplication check: return existing sale if identical sale submitted in last 20 seconds

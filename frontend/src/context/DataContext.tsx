@@ -11,11 +11,13 @@ interface DataContextType {
   sales: Sale[];
   loading: boolean;
   refreshData: () => Promise<void>;
-  addCompany: (name: string) => Promise<void>;
-  updateCompany: (id: string, name: string) => Promise<void>;
+  addCompany: (name: string, logo?: string) => Promise<void>;
+  updateCompany: (id: string, name: string, logo?: string) => Promise<void>;
+  uploadCompanyLogo: (file: File) => Promise<string>;
   deleteCompany: (id: string) => Promise<boolean>;
   addProduct: (product: Omit<Product, 'id' | 'purchasePrice'>) => Promise<void>;
   updateProduct: (id: string, product: Omit<Product, 'id'>) => Promise<void>;
+  updateProductPrices: (id: string, prices: { purchasePrice: number; mrp?: number | null; companyDiscount?: number | null }) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<boolean>;
   addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number, mrp?: number, companyDiscount?: number) => Promise<void>;
   addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
@@ -83,6 +85,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCompanies(compRes.data.map((c: any) => ({
         id: c.id,
         name: c.name,
+        logo: c.logo || undefined,
         createdAt: c.created_at
       })).sort((a: any, b: any) => a.name.localeCompare(b.name)));
 
@@ -106,11 +109,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (pDiscount === undefined && latestIn.company_discount !== null && latestIn.company_discount !== undefined) {
             pDiscount = parseFloat(latestIn.company_discount);
           }
-        } else if (productInTransactions.length === 0) {
-          // No IN transactions exist at all for this product (e.g. all were deleted)
-          pPrice = 0;
-          pMrp = undefined;
-          pDiscount = undefined;
         }
 
         return {
@@ -249,22 +247,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshData();
   }, [isLoggedIn]);
 
-  const addCompany = async (name: string) => {
+  const addCompany = async (name: string, logo?: string) => {
     try {
-      await api.post('/companies/', { name });
+      await api.post('/companies/', { name, logo: logo || null });
       await refreshData();
     } catch (error) {
       console.error('Failed to add company:', error);
     }
   };
 
-  const updateCompany = async (id: string, name: string) => {
+  const updateCompany = async (id: string, name: string, logo?: string) => {
     try {
-      await api.put(`/companies/${id}`, { name });
+      const payload: any = { name };
+      if (logo !== undefined) {
+        payload.logo = logo;
+      }
+      await api.put(`/companies/${id}`, payload);
       await refreshData();
     } catch (error) {
       console.error('Failed to update company:', error);
     }
+  };
+
+  const uploadCompanyLogo = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/companies/upload-logo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return res.data.filename;
   };
 
   const deleteCompany = async (id: string): Promise<boolean> => {
@@ -312,6 +325,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProductPrices = async (id: string, prices: { purchasePrice: number; mrp?: number | null; companyDiscount?: number | null }): Promise<boolean> => {
+    try {
+      const payload: any = { purchase_price: prices.purchasePrice };
+      if (prices.mrp !== undefined) payload.mrp = prices.mrp;
+      if (prices.companyDiscount !== undefined) payload.company_discount = prices.companyDiscount;
+      await api.put(`/products/${id}`, payload);
+      await refreshData();
+      return true;
+    } catch (error) {
+      console.error('Failed to update product prices:', error);
+      return false;
+    }
+  };
   const deleteProduct = async (id: string): Promise<boolean> => {
     try {
       await api.delete(`/products/${id}`);
@@ -488,8 +514,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <DataContext.Provider value={{
       companies, products, stocks, stockTransactions, sales, loading, refreshData,
-      addCompany, updateCompany, deleteCompany,
-      addProduct, updateProduct, deleteProduct,
+      addCompany, updateCompany, uploadCompanyLogo, deleteCompany,
+      addProduct, updateProduct, updateProductPrices, deleteProduct,
       addStock, updateStockTransaction, deleteStockTransaction,
       addSale, addBulkSale, updateSale, deleteSale, deleteInvoice
     }}>
@@ -503,3 +529,9 @@ export const useData = () => {
   if (!context) throw new Error('useData must be used within DataProvider');
   return context;
 };
+
+
+
+
+
+

@@ -18,7 +18,7 @@ def update_product(db: Session, product_id: UUID, product: ProductUpdate):
 def get_products(
     db: Session, 
     skip: int = 0, 
-    limit: int = 100, 
+    limit: Optional[int] = None, 
     search: Optional[str] = None, 
     category: Optional[str] = None
 ):
@@ -49,7 +49,12 @@ def get_products(
     if category:
         query = query.filter(Product.category == category)
 
-    results = query.group_by(Product.id).offset(skip).limit(limit).all()
+    query = query.group_by(Product.id)
+    if skip:
+        query = query.offset(skip)
+    if limit is not None and limit > 0:
+        query = query.limit(limit)
+    results = query.all()
     
     # Flatten results to match schema (Product + stock balance)
     products = []

@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
+from pathlib import Path
+import re
+import shutil
 from app.db.session import get_db
 from app.schemas.company import Company, CompanyCreate, CompanyUpdate
 from app.crud import crud_company
@@ -13,7 +16,7 @@ router = APIRouter()
 @router.get("/", response_model=List[Company])
 def read_companies(
     skip: int = 0, 
-    limit: int = 100, 
+    limit: Optional[int] = None, 
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
@@ -64,3 +67,23 @@ def delete_company(
     if not db_company:
         raise HTTPException(status_code=404, detail="Company not found")
     return None
+
+
+@router.post("/upload-logo", response_model=dict, status_code=status.HTTP_201_CREATED)
+def upload_logo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    # Sanitize filename: only alphanumeric, dots, hyphens
+    sanitized = re.sub(r'[^a-zA-Z0-9.\-]', '_', file.filename) if file.filename else "logo.png"
+    
+    # Path to frontend logos
+    logos_dir = Path(__file__).resolve().parents[5] / 'frontend' / 'src' / 'logos'
+    logos_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = logos_dir / sanitized
+    
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"filename": sanitized}
