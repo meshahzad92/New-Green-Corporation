@@ -127,15 +127,8 @@ def clear_report_cache():
 def get_period_financial_summary(db: Session, start_date: date, end_date: date):
     """
     Get comprehensive financial summary for a date range with high-performance
-    grouped aggregation, parallel execution, and 60-second in-memory caching.
+    grouped aggregation and parallel execution.
     """
-    cache_key = f"{start_date}_{end_date}"
-    now_ts = time.time()
-    if cache_key in _period_report_cache:
-        cached_ts, cached_data = _period_report_cache[cache_key]
-        if now_ts - cached_ts < CACHE_TTL_SECONDS:
-            return cached_data
-
     def fetch_sales_data():
         s_db = SessionLocal()
         try:
@@ -234,7 +227,7 @@ def get_period_financial_summary(db: Session, start_date: date, end_date: date):
             "date": d_str,
             "revenue": float(s_row.revenue) if s_row else 0.0,
             "profit": float(s_row.profit) if s_row else 0.0,
-            "expenses": float(e_row.total) if e_row else 0.0
+            "expenses": abs(float(e_row.total)) if e_row else 0.0
         })
         current_date += timedelta(days=1)
 
@@ -272,6 +265,5 @@ def get_period_financial_summary(db: Session, start_date: date, end_date: date):
         "daily_breakdown": daily_data
     }
 
-    _period_report_cache[cache_key] = (now_ts, result)
     return result
 

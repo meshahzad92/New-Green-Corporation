@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell, PieChart, Pie, LineChart, Line } from 'recharts';
@@ -6,7 +5,7 @@ import { calculateProfit } from '../utils/calculations';
 import { Calendar, TrendingUp, Award, DollarSign, CreditCard, Wallet, ShoppingCart, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import api from '../utils/api';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { formatAmount } from '../utils/formatters';
+import { formatAmount, toISODateString } from '../utils/formatters';
 
 type PeriodType = '1month' | '3months' | '6months' | '1year' | 'custom';
 
@@ -56,9 +55,8 @@ const Reports: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [periodSummary, setPeriodSummary] = useState<PeriodSummary | null>(null);
   const [loading, setLoading] = useState(false);
-  const cacheRef = React.useRef<{ [key: string]: PeriodSummary }>({});
 
-  // Calculate date ranges based on selected period
+  // Calculate date ranges based on selected period using local date strings (no timezone skew)
   const getDateRange = () => {
     const today = new Date();
     let startDate = new Date();
@@ -79,8 +77,18 @@ const Reports: React.FC = () => {
       case 'custom':
         if (customStartDate && customEndDate) {
           return {
-            start: customStartDate.toISOString().split('T')[0],
-            end: customEndDate.toISOString().split('T')[0]
+            start: toISODateString(customStartDate),
+            end: toISODateString(customEndDate)
+          };
+        } else if (customStartDate) {
+          return {
+            start: toISODateString(customStartDate),
+            end: toISODateString(customStartDate)
+          };
+        } else if (customEndDate) {
+          return {
+            start: toISODateString(customEndDate),
+            end: toISODateString(customEndDate)
           };
         }
         startDate.setMonth(today.getMonth() - 1);
@@ -88,22 +96,14 @@ const Reports: React.FC = () => {
     }
 
     return {
-      start: startDate.toISOString().split('T')[0],
-      end: today.toISOString().split('T')[0]
+      start: toISODateString(startDate),
+      end: toISODateString(today)
     };
   };
 
-  // Fetch period summary from backend with instant cache retrieval
+  // Fetch period summary live from backend
   const fetchPeriodSummary = async () => {
     const dateRange = getDateRange();
-    const cacheKey = `${dateRange.start}_${dateRange.end}`;
-
-    // Return instant cached data if available
-    if (cacheRef.current[cacheKey]) {
-      setPeriodSummary(cacheRef.current[cacheKey]);
-      setLoading(false);
-      return;
-    }
 
     setLoading(true);
     try {
@@ -113,7 +113,6 @@ const Reports: React.FC = () => {
           end_date: dateRange.end
         }
       });
-      cacheRef.current[cacheKey] = response.data;
       setPeriodSummary(response.data);
     } catch (error) {
       console.error('Failed to fetch period summary:', error);
@@ -122,11 +121,10 @@ const Reports: React.FC = () => {
     }
   };
 
-  // Fetch data when period changes
+  // Fetch data when period or custom date range changes
   useEffect(() => {
     fetchPeriodSummary();
   }, [selectedPeriod, customStartDate, customEndDate]);
-
 
   // Top products by sales
   const productPerformance = useMemo(() => {
