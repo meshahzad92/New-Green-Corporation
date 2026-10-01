@@ -1,38 +1,39 @@
 name: Weekly Database Backup
 
-# Runs every Sunday at 2:00 AM PKT (21:00 UTC Saturday → 02:00 PKT Sunday)
-# PKT = UTC+5, so 2 AM PKT = 9 PM UTC (previous day)
+# Runs every Sunday at 2:00 AM PKT (21:00 UTC Saturday)
 on:
   schedule:
-    - cron: '0 21 * * 6'    # 21:00 UTC Saturday = 02:00 PKT Sunday
-  workflow_dispatch:          # Allow manual trigger from GitHub Actions UI
+    - cron: '0 21 * * 6'
+  workflow_dispatch:
 
 jobs:
   backup:
-    name: Dump Supabase DB and Upload to Google Drive
+    name: Backup AWS PostgreSQL to Google Drive
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y postgresql-client
-
-      - name: Dump database from Supabase
+      - name: SSH into EC2 and dump database
         env:
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USERNAME }}
         run: |
           FILENAME="agrimanage_backup_$(date +%Y%m%d_%H%M%S).dump"
           echo "BACKUP_FILENAME=$FILENAME" >> $GITHUB_ENV
 
-          pg_dump \
-            -h db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co \
-            -U postgres \
-            -d postgres \
-            -F c \
-            -f "$FILENAME"
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-          echo "✅ Database dumped to $FILENAME ($(du -sh $FILENAME | cut -f1))"
+          echo "📦 Running pg_dump on EC2..."
+          # SSH in, read DATABASE_URL from .env, dump to stdout, capture locally
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ~/.ssh/id_rsa \
+            "$SSH_USER@$SSH_HOST" \
+            'cd ~/New-Green-Corporation/backend 2>/dev/null || cd ~/new-green-corporation/backend; DB_URL=$(grep -E "^DATABASE_URL=" .env | head -1 | cut -d= -f2-); pg_dump "$DB_URL" -F c' \
+            > "$FILENAME"
+
+          SIZE=$(du -sh "$FILENAME" | cut -f1)
+          echo "✅ Database dumped to $FILENAME ($SIZE)"
 
       - name: Upload backup to Google Drive
         uses: adityak74/google-drive-upload-git-action@main
