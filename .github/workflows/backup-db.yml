@@ -1,10 +1,9 @@
 name: Database Backup
 
-# Testing: every 5 minutes. Change to weekly after testing.
-# Weekly (Sunday 2 AM PKT): cron: '0 21 * * 6'
+# Weekly: Sunday 2 AM PKT (Saturday 9 PM UTC)
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 21 * * 6'
   workflow_dispatch:
 
 jobs:
