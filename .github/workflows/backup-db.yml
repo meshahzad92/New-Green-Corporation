@@ -35,49 +35,40 @@ jobs:
           SIZE=$(du -sh "$FILENAME" | cut -f1)
           echo "✅ Database dumped to $FILENAME ($SIZE)"
 
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
       - name: Upload to Google Drive
         env:
-          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
         run: |
-          # Decode service account credentials
-          echo "$GDRIVE_CREDENTIALS" | base64 -d > /tmp/sa.json
+          # Write rclone config from secret
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_CONF" | python3 -c "
+          import sys, json
+          conf = json.load(sys.stdin)
+          for name, vals in conf.items():
+              print(f'[{name}]')
+              for k, v in vals.items():
+                  if isinstance(v, dict):
+                      import json as j
+                      print(f'{k} = {j.dumps(v)}')
+                  else:
+                      print(f'{k} = {v}')
+              print()
+          " > ~/.config/rclone/rclone.conf
 
-          # Install Python google libraries
-          pip install -q google-auth google-api-python-client
+          FOLDER_ID="1Lq2AGqvIMm59sV_f1_986AfZYyNKSBBl"
+          FILENAME="${BACKUP_FILENAME}"
 
-          python3 << 'PYEOF'
-          import os, sys
-          from google.oauth2 import service_account
-          from googleapiclient.discovery import build
-          from googleapiclient.http import MediaFileUpload
+          # Copy file to Google Drive (overwrites if same name exists)
+          rclone copyto "$FILENAME" "gdrive:AgriManage Backups/$FILENAME" \
+            --drive-root-folder-id="$FOLDER_ID" \
+            -v
 
-          SCOPES = ['https://www.googleapis.com/auth/drive.file']
-          creds = service_account.Credentials.from_service_account_file('/tmp/sa.json', scopes=SCOPES)
-          service = build('drive', 'v3', credentials=creds)
-
-          filename = os.environ['BACKUP_FILENAME']
-          folder_id = os.environ['GDRIVE_FOLDER_ID']
-
-          # Check if file with same name already exists in folder
-          query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
-          results = service.files().list(q=query, spaces='drive', fields='files(id)').execute()
-          existing = results.get('files', [])
-
-          media = MediaFileUpload(filename, mimetype='application/octet-stream', resumable=True)
-
-          if existing:
-              # Overwrite existing file
-              file_id = existing[0]['id']
-              updated = service.files().update(fileId=file_id, media_body=media).execute()
-              print(f"✅ Updated existing backup: {filename} (id: {updated['id']})")
-          else:
-              # Create new file in the folder
-              file_metadata = {'name': filename, 'parents': [folder_id]}
-              created = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-              print(f"✅ Created new backup: {filename} (id: {created['id']})")
-          PYEOF
+          echo "✅ Backup uploaded to Google Drive: $FILENAME"
 
       - name: Cleanup
         if: always()
-        run: rm -f /tmp/sa.json
+        run: rm -f ~/.config/rclone/rclone.conf
