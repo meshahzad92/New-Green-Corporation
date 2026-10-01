@@ -27,19 +27,15 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
           echo "📦 Exporting database via app API on EC2..."
-          # Login to get JWT token, then call backup export
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ~/.ssh/id_rsa \
-            "$SSH_USER@$SSH_HOST" bash -s << 'REMOTE'
-            # Get JWT token
+            "$SSH_USER@$SSH_HOST" bash -s << 'REMOTE' > "$FILENAME"
             TOKEN=$(curl -sf -X POST http://localhost:8000/api/v1/login/access-token \
               -H "Content-Type: application/x-www-form-urlencoded" \
               -d "username=waris92&password=waris92" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-            # Export backup JSON
             curl -sf http://localhost:8000/api/v1/backup/export \
               -H "Authorization: Bearer $TOKEN"
           REMOTE
-          > "$FILENAME"
 
           SIZE=$(du -sh "$FILENAME" | cut -f1)
           echo "✅ Database exported to $FILENAME ($SIZE)"
