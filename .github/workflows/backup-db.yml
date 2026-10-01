@@ -1,9 +1,10 @@
-name: Weekly Database Backup
+name: Database Backup
 
-# Runs every Sunday at 2:00 AM PKT (21:00 UTC Saturday)
+# Testing: every 5 minutes. Change to weekly after testing.
+# Weekly (Sunday 2 AM PKT): cron: '0 21 * * 6'
 on:
   schedule:
-    - cron: '0 21 * * 6'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -18,7 +19,7 @@ jobs:
           SSH_HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          FILENAME="agrimanage_backup_$(date +%Y%m%d_%H%M%S).dump"
+          FILENAME="agrimanage_backup.dump"
           echo "BACKUP_FILENAME=$FILENAME" >> $GITHUB_ENV
 
           mkdir -p ~/.ssh
@@ -26,7 +27,6 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
           echo "📦 Running pg_dump on EC2..."
-          # SSH in, read DATABASE_URL from .env, dump to stdout, capture locally
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ~/.ssh/id_rsa \
             "$SSH_USER@$SSH_HOST" \
             'cd ~/New-Green-Corporation/backend 2>/dev/null || cd ~/new-green-corporation/backend; DB_URL=$(grep -E "^DATABASE_URL=" .env | head -1 | cut -d= -f2-); pg_dump "$DB_URL" -F c' \
@@ -35,14 +35,15 @@ jobs:
           SIZE=$(du -sh "$FILENAME" | cut -f1)
           echo "✅ Database dumped to $FILENAME ($SIZE)"
 
-      - name: Upload backup to Google Drive
+      - name: Upload backup to Google Drive (overwrites existing)
         uses: adityak74/google-drive-upload-git-action@main
         with:
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           filename: ${{ env.BACKUP_FILENAME }}
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-          overwrite: false
+          overwrite: true
+          name: agrimanage_backup.dump
           mimeType: application/octet-stream
 
       - name: Confirm upload
-        run: echo "✅ Backup ${{ env.BACKUP_FILENAME }} uploaded to Google Drive successfully!"
+        run: echo "✅ Backup uploaded to Google Drive at $(date '+%Y-%m-%d %H:%M:%S UTC')"
