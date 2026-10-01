@@ -35,15 +35,49 @@ jobs:
           SIZE=$(du -sh "$FILENAME" | cut -f1)
           echo "✅ Database dumped to $FILENAME ($SIZE)"
 
-      - name: Upload backup to Google Drive (overwrites existing)
-        uses: adityak74/google-drive-upload-git-action@main
-        with:
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          filename: ${{ env.BACKUP_FILENAME }}
-          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-          overwrite: true
-          name: ${{ env.BACKUP_FILENAME }}
-          mimeType: application/octet-stream
+      - name: Upload to Google Drive
+        env:
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          # Decode service account credentials
+          echo "$GDRIVE_CREDENTIALS" | base64 -d > /tmp/sa.json
 
-      - name: Confirm upload
-        run: echo "✅ Backup uploaded to Google Drive at $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          # Install Python google libraries
+          pip install -q google-auth google-api-python-client
+
+          python3 << 'PYEOF'
+          import os, sys
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          SCOPES = ['https://www.googleapis.com/auth/drive.file']
+          creds = service_account.Credentials.from_service_account_file('/tmp/sa.json', scopes=SCOPES)
+          service = build('drive', 'v3', credentials=creds)
+
+          filename = os.environ['BACKUP_FILENAME']
+          folder_id = os.environ['GDRIVE_FOLDER_ID']
+
+          # Check if file with same name already exists in folder
+          query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
+          results = service.files().list(q=query, spaces='drive', fields='files(id)').execute()
+          existing = results.get('files', [])
+
+          media = MediaFileUpload(filename, mimetype='application/octet-stream', resumable=True)
+
+          if existing:
+              # Overwrite existing file
+              file_id = existing[0]['id']
+              updated = service.files().update(fileId=file_id, media_body=media).execute()
+              print(f"✅ Updated existing backup: {filename} (id: {updated['id']})")
+          else:
+              # Create new file in the folder
+              file_metadata = {'name': filename, 'parents': [folder_id]}
+              created = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+              print(f"✅ Created new backup: {filename} (id: {created['id']})")
+          PYEOF
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/sa.json
