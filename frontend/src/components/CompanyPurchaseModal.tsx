@@ -13,15 +13,42 @@ import {
   ChevronDown
 } from 'lucide-react';
 import CustomDatePicker from './CustomDatePicker';
-import { companyKhataService, CompanyKhataOverview } from '../utils/companyKhataApi';
+import { companyKhataService, CompanyKhataOverview, CompanyKhataEntry } from '../utils/companyKhataApi';
 import { useData } from '../context/DataContext';
 import { formatAmount } from '../utils/formatters';
 
 interface LineItem {
   productId: string;
   quantity: string;
-  totalPrice: string;
+  mrp: string;
+  discount: string;
+  showDiscount: boolean;
+  purchasePrice: string;
 }
+
+const blankItem = (): LineItem => ({
+  productId: '',
+  quantity: '',
+  mrp: '',
+  discount: '',
+  showDiscount: false,
+  purchasePrice: ''
+});
+
+// Effective unit purchase price for a line: MRP x (1 - discount/100) when discount mode is on,
+// otherwise the manually typed purchase price. Mirrors the Stock Inward page.
+const effectiveUnitPrice = (item: LineItem): number | null => {
+  if (item.showDiscount) {
+    const m = parseFloat(item.mrp);
+    const d = parseFloat(item.discount);
+    if (!isNaN(m) && m > 0 && !isNaN(d) && d >= 0) {
+      return Number((m * (1 - d / 100)).toFixed(2));
+    }
+    return null;
+  }
+  const manual = parseFloat(item.purchasePrice);
+  return !isNaN(manual) && manual >= 0 ? manual : null;
+};
 
 interface CompanyPurchaseModalProps {
   isOpen: boolean;
@@ -29,22 +56,26 @@ interface CompanyPurchaseModalProps {
   onSuccess: () => void;
   preselectedCompanyId?: string;
   companiesList?: CompanyKhataOverview[];
+  // When provided, the modal edits this existing PURCHASE entry instead of creating a new one
+  editingEntry?: CompanyKhataEntry | null;
 }
+
+const EMPTY_COMPANIES: CompanyKhataOverview[] = [];
 
 export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
   preselectedCompanyId,
-  companiesList = []
+  companiesList = EMPTY_COMPANIES,
+  editingEntry = null
 }) => {
+  const isEditMode = !!editingEntry;
   const { companies: catalogCompanies, products, stocks, refreshData } = useData();
   const [accounts, setAccounts] = useState<CompanyKhataOverview[]>(companiesList);
   const [companyId, setCompanyId] = useState<string>(preselectedCompanyId || '');
   const [purchaseDate, setPurchaseDate] = useState<Date | null>(new Date());
-  const [items, setItems] = useState<LineItem[]>([
-    { productId: '', quantity: '', totalPrice: '' }
-  ]);
+  const [items, setItems] = useState<LineItem[]>([blankItem()]);
   const [remarks, setRemarks] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -68,16 +99,32 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
         setCompanyId(preselectedCompanyId || '');
       }
 
-      setPurchaseDate(new Date());
-      setItems([{ productId: '', quantity: '', totalPrice: '' }]);
-      setRemarks('');
+      if (editingEntry) {
+        // Edit mode: lock to this entry's company and prefill its received lines
+        setCompanyId(editingEntry.account_id || editingEntry.company_id || preselectedCompanyId || '');
+        setPurchaseDate(editingEntry.entry_date ? new Date(editingEntry.entry_date) : new Date());
+        const prefilled: LineItem[] = (editingEntry.products_detail || []).map((it: any) => ({
+          productId: it.product_id || '',
+          quantity: it.quantity != null ? String(it.quantity) : '',
+          mrp: it.mrp != null ? String(it.mrp) : '',
+          discount: it.company_discount != null ? String(it.company_discount) : '',
+          showDiscount: false, // prefill as direct unit price to preserve the exact stored cost
+          purchasePrice: it.unit_price != null ? String(it.unit_price) : ''
+        }));
+        setItems(prefilled.length > 0 ? prefilled : [blankItem()]);
+        setRemarks(editingEntry.remarks || '');
+      } else {
+        setPurchaseDate(new Date());
+        setItems([blankItem()]);
+        setRemarks('');
+      }
       setError('');
       setIsSubmitting(false);
       setOpenProductDropdownIdx(null);
       setProductSearchTerms({});
       setFilterByCompanyOnly(true);
     }
-  }, [isOpen, preselectedCompanyId, companiesList]);
+  }, [isOpen, preselectedCompanyId, companiesList, editingEntry]);
 
   const [filterByCompanyOnly, setFilterByCompanyOnly] = useState<boolean>(true);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -156,7 +203,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
   if (!isOpen) return null;
 
   const handleAddItem = () => {
-    setItems(prev => [...prev, { productId: '', quantity: '', totalPrice: '' }]);
+    setItems(prev => [...prev, blankItem()]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -167,7 +214,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
     }
   };
 
-  const handleItemChange = (index: number, field: keyof LineItem, value: string) => {
+  const handleItemChange = (index: number, field: keyof LineItem, value: string | boolean) => {
     setItems(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -190,8 +237,10 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
   };
 
   const grandTotal = items.reduce((sum, item) => {
-    const p = parseFloat(item.totalPrice) || 0;
-    return sum + p;
+    const unit = effectiveUnitPrice(item);
+    const q = parseInt(item.quantity, 10) || 0;
+    if (unit !== null && q > 0) return sum + unit * q;
+    return sum;
   }, 0);
 
   const totalUnits = items.reduce((sum, item) => {
@@ -226,15 +275,23 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
         setError(`Please enter a valid quantity for item #${i + 1}`);
         return;
       }
-      const total = parseFloat(item.totalPrice);
-      if (!total || total <= 0) {
-        setError(`Please enter a valid total price for item #${i + 1}`);
+      const unit = effectiveUnitPrice(item);
+      if (unit === null || unit <= 0) {
+        setError(
+          item.showDiscount
+            ? `Please enter a valid MRP and discount for item #${i + 1}`
+            : `Please enter a valid purchase price for item #${i + 1}`
+        );
         return;
       }
+      const mrpVal = item.mrp ? parseFloat(item.mrp) : undefined;
+      const discVal = item.showDiscount && item.discount ? parseFloat(item.discount) : undefined;
       parsedItems.push({
         product_id: item.productId,
         quantity: qty,
-        total_price: total
+        purchase_price: unit,
+        mrp: mrpVal,
+        company_discount: discVal
       });
     }
 
@@ -242,13 +299,21 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
       setIsSubmitting(true);
       setError('');
 
-      await companyKhataService.recordPurchase({
-        account_id: companyId,
-        company_id: companyId,
-        entry_date: purchaseDate ? purchaseDate.toISOString() : new Date().toISOString(),
-        items: parsedItems,
-        remarks: remarks.trim() || undefined
-      });
+      if (isEditMode && editingEntry) {
+        await companyKhataService.updateEntry(editingEntry.id, {
+          entry_date: purchaseDate ? purchaseDate.toISOString() : new Date().toISOString(),
+          items: parsedItems,
+          remarks: remarks.trim() || undefined
+        });
+      } else {
+        await companyKhataService.recordPurchase({
+          account_id: companyId,
+          company_id: companyId,
+          entry_date: purchaseDate ? purchaseDate.toISOString() : new Date().toISOString(),
+          items: parsedItems,
+          remarks: remarks.trim() || undefined
+        });
+      }
 
       // Refresh global app data to reflect updated stock and purchase prices
       await refreshData();
@@ -273,8 +338,8 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Receive Stock from Company</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Add inward shipment: auto-updates stock & calculates unit purchase price</p>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{isEditMode ? 'Edit Stock Receipt' : 'Receive Stock from Company'}</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{isEditMode ? 'Edit received products: re-syncs stock & purchase prices' : 'Add inward shipment: auto-updates stock & calculates unit purchase price'}</p>
             </div>
           </div>
           <button
@@ -300,7 +365,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
                 Company Account *
               </label>
-              {preselectedCompanyId ? (
+              {(preselectedCompanyId || isEditMode) ? (
                 <div className="p-2.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2.5">
                   <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span className="font-semibold text-sm text-gray-900 dark:text-white">
@@ -316,7 +381,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
                   value={companyId}
                   onChange={(e) => {
                     setCompanyId(e.target.value);
-                    setItems([{ productId: '', quantity: '', totalPrice: '' }]);
+                    setItems([blankItem()]);
                     setOpenProductDropdownIdx(null);
                   }}
                   required
@@ -391,10 +456,10 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
             <div className="space-y-3">
               {items.map((item, idx) => {
                 const prod = products.find(p => p.id === item.productId);
-                const curStock = stocks[item.productId]?.remaining ?? 0;
+                const curStock = stocks.find(s => s.productId === item.productId)?.remaining ?? 0;
                 const qtyNum = parseInt(item.quantity, 10) || 0;
-                const totalNum = parseFloat(item.totalPrice) || 0;
-                const unitPrice = qtyNum > 0 && totalNum > 0 ? (totalNum / qtyNum).toFixed(2) : null;
+                const unitPrice = effectiveUnitPrice(item);
+                const lineTotal = unitPrice !== null && qtyNum > 0 ? unitPrice * qtyNum : null;
                 const newStockPreview = qtyNum > 0 ? curStock + qtyNum : null;
 
                 const searchTerm = (productSearchTerms[idx] || '').toLowerCase();
@@ -474,7 +539,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
                                 </div>
                               ) : (
                                 filteredProdsForDropdown.map(p => {
-                                  const pStock = stocks[p.id]?.remaining ?? 0;
+                                  const pStock = stocks.find(s => s.productId === p.id)?.remaining ?? 0;
                                   const isSelected = p.id === item.productId;
 
                                   return (
@@ -524,7 +589,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
                       </div>
 
                       {/* Quantity */}
-                      <div className="sm:col-span-3">
+                      <div className="sm:col-span-6">
                         <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
                           Quantity ({prod?.unit || 'Units'}) *
                         </label>
@@ -539,33 +604,104 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
                           className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-
-                      {/* Total Price for this item */}
-                      <div className="sm:col-span-3">
-                        <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                          Total Price (Rs.) *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          step="any"
-                          placeholder="e.g. 100000"
-                          value={item.totalPrice}
-                          onChange={(e) => handleItemChange(idx, 'totalPrice', e.target.value)}
-                          required
-                          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
                     </div>
 
-                    {/* Auto-Calculated Unit Price Card */}
-                    {unitPrice && (
+                    {/* Pricing: MRP + discount % (auto purchase price) OR direct purchase price — mirrors Stock Inward */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                          Pricing
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleItemChange(idx, 'showDiscount', !item.showDiscount)}
+                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition ${
+                            item.showDiscount
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                          }`}
+                        >
+                          {item.showDiscount ? 'Using MRP − Discount %' : 'Add company discount %'}
+                        </button>
+                      </div>
+
+                      {item.showDiscount ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                              MRP (Rs.) *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="e.g. 5000"
+                              value={item.mrp}
+                              onChange={(e) => handleItemChange(idx, 'mrp', e.target.value)}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                              Company Discount (%) *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="any"
+                              placeholder="e.g. 10"
+                              value={item.discount}
+                              onChange={(e) => handleItemChange(idx, 'discount', e.target.value)}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                              MRP (Rs.) <span className="text-gray-400 normal-case">(optional)</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="e.g. 5000"
+                              value={item.mrp}
+                              onChange={(e) => handleItemChange(idx, 'mrp', e.target.value)}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                              Purchase Price / {prod?.unit || 'unit'} (Rs.) *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="e.g. 4500"
+                              value={item.purchasePrice}
+                              onChange={(e) => handleItemChange(idx, 'purchasePrice', e.target.value)}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Line Total (auto-computed: unit purchase price × quantity) */}
+                    {unitPrice !== null && qtyNum > 0 && (
                       <div className="p-2.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/30 rounded-lg flex items-center justify-between text-xs">
                         <div className="text-gray-600 dark:text-gray-300">
-                          Unit Purchase Price: <span className="font-mono font-medium">Rs. {formatAmount(Number(totalNum))} ÷ {qtyNum} units</span>
+                          Unit Purchase Price: <span className="font-mono font-medium">Rs. {formatAmount(Number(unitPrice))} / {prod?.unit || 'unit'}</span>
+                          {item.showDiscount && (
+                            <span className="ml-1 text-gray-400">(MRP − {item.discount || 0}%)</span>
+                          )}
                         </div>
                         <div className="font-bold text-blue-700 dark:text-blue-400">
-                          = Rs. {formatAmount(Number(unitPrice))} / {prod?.unit || 'unit'}
+                          Line Total = Rs. {formatAmount(Number(lineTotal))}
                         </div>
                       </div>
                     )}
@@ -622,12 +758,12 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Receiving Stock...
+                  {isEditMode ? 'Saving Changes...' : 'Receiving Stock...'}
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  Confirm Stock Receipt
+                  {isEditMode ? 'Save Changes' : 'Confirm Stock Receipt'}
                 </>
               )}
             </button>

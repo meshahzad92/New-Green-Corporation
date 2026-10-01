@@ -48,6 +48,8 @@ const CompanyKhataDetail: React.FC = () => {
 
   // Edit Entry Modal
   const [editingEntry, setEditingEntry] = useState<CompanyKhataEntry | null>(null);
+  // Edit Purchase (received stock) — uses the full purchase modal so products/qty/prices are editable
+  const [editingPurchase, setEditingPurchase] = useState<CompanyKhataEntry | null>(null);
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [editAmountPaid, setEditAmountPaid] = useState('');
   const [editPaymentMethod, setEditPaymentMethod] = useState<'CASH' | 'ONLINE'>('ONLINE');
@@ -112,6 +114,11 @@ const CompanyKhataDetail: React.FC = () => {
 
   // Handle Edit Opening
   const handleOpenEdit = (entry: CompanyKhataEntry) => {
+    // Received-stock entries open the full purchase editor (products, quantities, prices)
+    if (entry.entry_type === 'PURCHASE') {
+      setEditingPurchase(entry);
+      return;
+    }
     setEditingEntry(entry);
     setEditDate(new Date(entry.entry_date));
     setEditAmountPaid(entry.amount_paid ? entry.amount_paid.toString() : '');
@@ -789,6 +796,34 @@ const CompanyKhataDetail: React.FC = () => {
           entry_count: ledgerData.entries.length,
           products_count: 0
         }] : []}
+      />
+
+      <CompanyPurchaseModal
+        isOpen={!!editingPurchase}
+        onClose={() => setEditingPurchase(null)}
+        onSuccess={() => {
+          setEditingPurchase(null);
+          loadLedger();
+          refreshData();
+        }}
+        preselectedCompanyId={companyId}
+        companiesList={ledgerData ? [{
+          account_id: ledgerData.account_id,
+          company_id: ledgerData.company_id,
+          name: ledgerData.name,
+          company_name: ledgerData.company_name,
+          phone: ledgerData.phone,
+          catalog_company_id: ledgerData.catalog_company_id,
+          catalog_company_name: ledgerData.catalog_company_name,
+          company_logo: ledgerData.company_logo,
+          total_paid: ledgerData.total_paid,
+          total_purchased: ledgerData.total_purchased,
+          net_balance: ledgerData.net_balance,
+          balance_status: ledgerData.balance_status,
+          entry_count: ledgerData.entries.length,
+          products_count: 0
+        }] : []}
+        editingEntry={editingPurchase}
       />
     </div>
   );

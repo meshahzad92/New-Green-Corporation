@@ -40,7 +40,9 @@ class CompanyPaymentCreate(BaseModel):
 class CompanyPurchaseItem(BaseModel):
     product_id: UUID
     quantity: int = Field(..., gt=0)
-    total_price: float = Field(..., gt=0, description="Total cost of this product lot")
+    purchase_price: float = Field(..., gt=0, description="Effective unit purchase price (MRP - discount, or entered directly)")
+    mrp: Optional[float] = Field(None, description="Maximum Retail Price per unit set by company")
+    company_discount: Optional[float] = Field(None, description="Discount % given by company, e.g. 10 = 10%")
 
 class CompanyPurchaseCreate(BaseModel):
     account_id: Optional[UUID] = None
@@ -56,6 +58,8 @@ class CompanyKhataEntryUpdate(BaseModel):
     bank_name: Optional[str] = None
     transaction_id: Optional[str] = None
     remarks: Optional[str] = None
+    # For editing a PURCHASE entry: when provided, replaces the received stock lines
+    items: Optional[List[CompanyPurchaseItem]] = None
 
 class CompanyKhataEntryOut(BaseModel):
     id: UUID

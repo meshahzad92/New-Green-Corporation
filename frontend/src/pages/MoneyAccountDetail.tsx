@@ -258,7 +258,7 @@ const MoneyAccountDetail: React.FC = () => {
             {dateFilter === 'CUSTOM' && (
               <div className="w-36">
                 <CustomDatePicker
-                  selectedDate={customDate}
+                  selected={customDate}
                   onChange={d => { setCustomDate(d); setDateFilter('CUSTOM'); }}
                   maxDate={new Date()}
                 />

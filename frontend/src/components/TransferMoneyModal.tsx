@@ -270,7 +270,7 @@ const TransferMoneyModal: React.FC<TransferMoneyModalProps> = ({
                 Transfer Date *
               </label>
               <CustomDatePicker
-                selectedDate={transferDate}
+                selected={transferDate}
                 onChange={date => setTransferDate(date || new Date())}
                 maxDate={new Date()}
               />

@@ -62,7 +62,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-
+agrimanage_backup_2026-09-23_1621.json
 # ========================================
 # Node.js / Frontend
 # ========================================

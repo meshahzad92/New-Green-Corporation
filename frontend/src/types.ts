@@ -35,6 +35,7 @@ export interface StockTransaction {
   companyDiscount?: number;
   type: 'IN' | 'OUT';
   date: string;
+  isDeleted?: boolean;
 }
 
 export interface Sale {
@@ -54,6 +55,7 @@ export interface Sale {
   invoiceNo?: string;
   paymentType: 'Credit' | 'Debit'; // Credit = Unpaid (Red), Debit = Paid (Green)
   date: string;
+  isDeleted?: boolean;
 }
 
 export interface Note {

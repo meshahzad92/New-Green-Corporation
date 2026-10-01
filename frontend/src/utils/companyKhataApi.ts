@@ -29,6 +29,8 @@ export interface CompanyPurchaseItem {
   quantity: number;
   total_price: number;
   unit_price?: number;
+  mrp?: number | null;
+  company_discount?: number | null;
 }
 
 export interface CompanyKhataOverview {
@@ -91,6 +93,7 @@ export interface CompanyPaymentCreate {
   bank_name?: string;
   transaction_id?: string;
   remarks?: string;
+  money_account_id?: string;
 }
 
 export interface CompanyPurchaseCreate {
@@ -100,7 +103,9 @@ export interface CompanyPurchaseCreate {
   items: Array<{
     product_id: string;
     quantity: number;
-    total_price: number;
+    purchase_price: number;
+    mrp?: number | null;
+    company_discount?: number | null;
   }>;
   remarks?: string;
 }
@@ -112,6 +117,14 @@ export interface CompanyKhataEntryUpdate {
   bank_name?: string;
   transaction_id?: string;
   remarks?: string;
+  // For editing a PURCHASE entry: replaces the received stock lines
+  items?: Array<{
+    product_id: string;
+    quantity: number;
+    purchase_price: number;
+    mrp?: number | null;
+    company_discount?: number | null;
+  }>;
 }
 
 export const companyKhataService = {

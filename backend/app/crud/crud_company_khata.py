@@ -407,18 +407,21 @@ def create_company_purchase(db: Session, data: CompanyPurchaseCreate):
         if qty <= 0:
             raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
 
-        tot_price = Decimal(str(item.total_price))
-        unit_price = round(tot_price / Decimal(str(qty)), 2)
+        # Effective unit purchase price (MRP - discount, or entered directly) is computed by caller
+        unit_price = round(Decimal(str(item.purchase_price)), 2)
+        item_mrp = Decimal(str(item.mrp)) if item.mrp is not None else None
+        item_discount = Decimal(str(item.company_discount)) if item.company_discount is not None else Decimal('0.00')
+        tot_price = (unit_price * Decimal(str(qty))).quantize(Decimal('0.01'))
 
-        # Create StockTransaction IN
+        # Create StockTransaction IN (mirrors Stock Inward: records unit cost, MRP, discount)
         stock_trans = StockTransaction(
             id=uuid.uuid4(),
             product_id=product.id,
             quantity=qty,
             party_name=f"{acc.name} (Inward Khata)",
             purchase_price=unit_price,
-            mrp=product.mrp,
-            company_discount=Decimal('0.00'),
+            mrp=item_mrp,
+            company_discount=item_discount,
             type='IN',
             created_at=entry_date,
             is_deleted=False
@@ -426,8 +429,11 @@ def create_company_purchase(db: Session, data: CompanyPurchaseCreate):
         db.add(stock_trans)
         db.flush()
 
-        # Update product's purchase price to newly calculated unit purchase price
+        # Update product pricing to the latest received values (latest-cost model, same as Stock Inward)
         product.purchase_price = unit_price
+        if item_mrp is not None:
+            product.mrp = item_mrp
+        product.company_discount = item_discount
         db.flush()
 
         stock_transaction_ids.append(str(stock_trans.id))
@@ -437,7 +443,9 @@ def create_company_purchase(db: Session, data: CompanyPurchaseCreate):
             "quantity": qty,
             "unit": product.unit,
             "total_price": float(tot_price),
-            "unit_price": float(unit_price)
+            "unit_price": float(unit_price),
+            "mrp": float(item_mrp) if item_mrp is not None else None,
+            "company_discount": float(item_discount)
         })
 
         total_bill_amount += tot_price
@@ -475,6 +483,108 @@ def update_company_entry(db: Session, entry_id: UUID, data: CompanyKhataEntryUpd
 
     if data.remarks is not None:
         entry.remarks = data.remarks.strip() if data.remarks else None
+
+    # For a PURCHASE entry, when new items are supplied, replace the received stock lines:
+    # soft-delete the old IN transactions, create fresh ones, and re-sync product pricing.
+    if entry.entry_type == 'PURCHASE' and data.items is not None:
+        if not data.items:
+            raise HTTPException(status_code=400, detail="At least one product item is required")
+
+        acc = db.query(CompanyKhataAccount).filter(CompanyKhataAccount.id == entry.account_id).first()
+        supplier_name = acc.name if acc else "Company"
+        tx_date = entry.entry_date  # already updated above if a new date was sent
+
+        # 1. Validate all products first
+        products_map = {}
+        for item in data.items:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+            if item.quantity <= 0:
+                raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
+            products_map[item.product_id] = product
+
+        # 2. Soft-delete the old IN stock transactions linked to this entry
+        old_product_ids = set()
+        for str_id in (entry.stock_transaction_ids or []):
+            try:
+                st = db.query(StockTransaction).filter(StockTransaction.id == UUID(str_id)).first()
+                if st and not st.is_deleted:
+                    st.is_deleted = True
+                    st.deleted_at = now
+                    old_product_ids.add(st.product_id)
+            except Exception as e:
+                print(f"Error soft-deleting stock transaction {str_id} during edit: {e}")
+        db.flush()
+
+        # 3. Create fresh IN transactions and update product pricing for the new items
+        new_products_detail = []
+        new_stock_transaction_ids = []
+        new_total = Decimal('0.00')
+        for item in data.items:
+            product = products_map[item.product_id]
+            qty = item.quantity
+            unit_price = round(Decimal(str(item.purchase_price)), 2)
+            item_mrp = Decimal(str(item.mrp)) if item.mrp is not None else None
+            item_discount = Decimal(str(item.company_discount)) if item.company_discount is not None else Decimal('0.00')
+            line_total = (unit_price * Decimal(str(qty))).quantize(Decimal('0.01'))
+
+            stock_trans = StockTransaction(
+                id=uuid.uuid4(),
+                product_id=product.id,
+                quantity=qty,
+                party_name=f"{supplier_name} (Inward Khata)",
+                purchase_price=unit_price,
+                mrp=item_mrp,
+                company_discount=item_discount,
+                type='IN',
+                created_at=tx_date,
+                is_deleted=False
+            )
+            db.add(stock_trans)
+            db.flush()
+
+            product.purchase_price = unit_price
+            if item_mrp is not None:
+                product.mrp = item_mrp
+            product.company_discount = item_discount
+
+            new_stock_transaction_ids.append(str(stock_trans.id))
+            new_products_detail.append({
+                "product_id": str(product.id),
+                "name": product.name,
+                "quantity": qty,
+                "unit": product.unit,
+                "total_price": float(line_total),
+                "unit_price": float(unit_price),
+                "mrp": float(item_mrp) if item_mrp is not None else None,
+                "company_discount": float(item_discount)
+            })
+            new_total += line_total
+
+        db.flush()
+
+        # 4. For products dropped from this entry, revert their price to the latest remaining IN
+        new_product_ids = {item.product_id for item in data.items}
+        for pid in (old_product_ids - new_product_ids):
+            prod = db.query(Product).filter(Product.id == pid).first()
+            if not prod:
+                continue
+            latest_in = db.query(StockTransaction).filter(
+                StockTransaction.product_id == pid,
+                StockTransaction.type == 'IN',
+                StockTransaction.is_deleted == False
+            ).order_by(StockTransaction.created_at.desc()).first()
+            if latest_in and latest_in.purchase_price:
+                prod.purchase_price = latest_in.purchase_price
+                prod.mrp = latest_in.mrp
+                prod.company_discount = latest_in.company_discount or Decimal('0.00')
+            else:
+                prod.purchase_price = Decimal('0.00')
+
+        entry.total_purchase_amount = new_total
+        entry.products_detail = new_products_detail
+        entry.stock_transaction_ids = new_stock_transaction_ids
 
     if entry.entry_type == 'PAYMENT':
         if data.amount_paid is not None:
@@ -531,6 +641,8 @@ def delete_company_entry(db: Session, entry_id: UUID):
                             prod.company_discount = latest_refill.company_discount or Decimal('0.00')
                         else:
                             prod.purchase_price = Decimal('0.00')
+                            prod.mrp = None
+                            prod.company_discount = Decimal('0.00')
             except Exception as e:
                 print(f"Error reverting stock transaction {str_id}: {e}")
 
