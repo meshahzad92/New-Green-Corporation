@@ -77,6 +77,7 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
   const [purchaseDate, setPurchaseDate] = useState<Date | null>(new Date());
   const [items, setItems] = useState<LineItem[]>([blankItem()]);
   const [remarks, setRemarks] = useState<string>('');
+  const [taxPercent, setTaxPercent] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -113,10 +114,12 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
         }));
         setItems(prefilled.length > 0 ? prefilled : [blankItem()]);
         setRemarks(editingEntry.remarks || '');
+        setTaxPercent('');
       } else {
         setPurchaseDate(new Date());
         setItems([blankItem()]);
         setRemarks('');
+        setTaxPercent('');
       }
       setError('');
       setIsSubmitting(false);
@@ -247,6 +250,10 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
     const q = parseInt(item.quantity, 10) || 0;
     return sum + q;
   }, 0);
+
+  const taxRate = parseFloat(taxPercent) || 0;
+  const taxAmount = taxRate > 0 ? grandTotal * (taxRate / 100) : 0;
+  const finalTotal = grandTotal + taxAmount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -712,16 +719,48 @@ export const CompanyPurchaseModal: React.FC<CompanyPurchaseModalProps> = ({
           </div>
 
           {/* Grand Summary Card */}
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Total Inward Bill</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {items.length} product(s), {totalUnits} total unit(s)
-              </p>
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Subtotal</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {items.length} product(s), {totalUnits} total unit(s)
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-black text-blue-700 dark:text-blue-300">
+                  Rs. {formatAmount(Number(grandTotal))}
+                </span>
+              </div>
             </div>
-            <div className="text-right">
+
+            {/* Tax Input */}
+            <div className="flex items-center gap-3 pt-2 border-t border-blue-200/60 dark:border-blue-800/40">
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Tax %</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  max="100"
+                  value={taxPercent}
+                  onChange={(e) => setTaxPercent(e.target.value)}
+                  placeholder="0"
+                  className="w-20 px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                />
+              </div>
+              {taxRate > 0 && (
+                <div className="text-right text-sm font-semibold text-gray-600 dark:text-gray-300">
+                  Tax: Rs. {formatAmount(Number(taxAmount))}
+                </div>
+              )}
+            </div>
+
+            {/* Final Total */}
+            <div className="flex items-center justify-between pt-2 border-t border-blue-200/60 dark:border-blue-800/40">
+              <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Total Inward Bill</span>
               <span className="text-2xl font-black text-blue-700 dark:text-blue-300">
-                Rs. {formatAmount(Number(grandTotal))}
+                Rs. {formatAmount(Number(finalTotal))}
               </span>
             </div>
           </div>
