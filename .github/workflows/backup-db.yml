@@ -19,7 +19,7 @@ jobs:
           SSH_HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          FILENAME="agrimanage_backup.dump"
+          FILENAME="agrimanage_backup_$(date +%Y-%m-%d).dump"
           echo "BACKUP_FILENAME=$FILENAME" >> $GITHUB_ENV
 
           mkdir -p ~/.ssh
@@ -42,7 +42,7 @@ jobs:
           filename: ${{ env.BACKUP_FILENAME }}
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
           overwrite: true
-          name: agrimanage_backup.dump
+          name: ${{ env.BACKUP_FILENAME }}
           mimeType: application/octet-stream
 
       - name: Confirm upload
