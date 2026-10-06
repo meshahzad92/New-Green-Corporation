@@ -147,6 +147,9 @@ Computed in SQL in `crud_product.get_products` (adds a `current_stock` label) an
 ### B. Products page (`pages/Products.tsx`)
 - Lists deduplicated products with current stock, low-stock flag (`remaining ≤ min_stock`, default 5).
 - Per the latest change, each card shows **category and MRP in blue** only.
+- Stock page eye toggle (`amountsVisible`, hidden by default) masks **only the 3 summary cards**
+  (Total Investment / Projected Return / Expected Profit). The product table and IN logs always
+  show purchase price, MRP, investment and value at MRP.
 - Add/edit product metadata (name/category/unit/min_stock/company). Price is normally set
   via Stock Inward, not here. Clicking a product → `ProductDetail.tsx` (full per-product history).
 
@@ -167,6 +170,21 @@ allocates `paid_amount` sequentially across items; each item becomes `Debit` if 
 
 **Payment semantics:** `Debit` = paid (green), `Credit` = unpaid/on-account (red).
 `paid_amount` defaults to full total for Debit, 0 for Credit.
+
+**Sales page UI (`pages/Sales.tsx`, `components/AddSaleModal.tsx`):**
+- Ledger rows are grouped by `invoice_id` (`groupedSales`). No "products sold" summary block anymore.
+- **`AddSaleModal` is both the Add and the Edit form.** Pass `editGroup` (`EditSaleGroup`) to edit;
+  the old separate edit-sale / edit-invoice modals were removed. "Full Payment" is a button beside the paid input.
+- Edit save order (frontend-orchestrated, one API call per row): `deleteSale` removed rows →
+  `updateSale` existing rows (paid amount allocated sequentially across rows) → `addSale` new rows
+  with the invoice's `invoice_id`/`invoice_no`. A legacy single sale without `invoice_id` gets a
+  fresh id stamped via `updateSale({invoiceId, invoiceNo})` when rows are added. Stock validation in the
+  form adds back the row's own original qty. Backend recalculates stock OUT, totals and profit.
+- **Dealer credit-sale invoices** (`Sale.dealer_name` set) are edit-locked in the form: product/qty/rate/
+  customer/date editable (khata entry re-syncs via `update_sale`), but no add/remove rows and no payment
+  editing — otherwise the dealer KhataEntry would desync (`delete_sale` soft-deletes the whole khata entry by invoice_id).
+- The `Sale` API response schema now includes `dealer_id`, `dealer_name`, `farmer_name` (previously
+  omitted, so the frontend never saw them).
 
 ### D. Profit
 `profit = (selling_price − purchase_price) × quantity` — uses the **snapshotted** purchase price.
@@ -193,7 +211,10 @@ A dealer owes money; we track credit given and recovery received. Balance = Σcr
   `credit_amount` + rebuilds its `products_detail`; and editing a `KhataEntry` (`update_entry`)
   syncs back to the linked `Sale`/`StockTransaction`. Keep these two in mind — changing one side
   must not desync the other.
-- Settled dealers hide credit/recovery values and the recovery column (recent UX change).
+- Dealer list (`Khata.tsx`) shows only name, contact, **net amount left**, entries, actions — no total credit /
+  total recovery cards or columns (those remain on the dealer detail page `KhataDetail.tsx`).
+- `CreditSaleModal` (credit sale + recovery tabs): dealer picker is a **searchable** dropdown (`DealerPicker`);
+  the recovery tab has no info/tip box.
 
 ---
 
@@ -225,7 +246,8 @@ Bank/cash wallets with computed balances.
 
 ## 9. Other modules
 
-- **Expenses** (`crud_expense.py`, `pages/Expenses.tsx`): signed `amount` (−expense / +income);
+- **Expenses** (`crud_expense.py`, `pages/Expenses.tsx`): signed `amount` (−expense / +income). The UI no longer
+  has a quantity field/column (new records are saved with `quantity: 1`; column still exists in the DB);
   `daily-total` and `date-range` endpoints feed reports. Net = Σamount.
 - **Reports** (`crud_report.py`, `pages/Reports.tsx`, `Dashboard.tsx`):
   - `GET /reports/` → dashboard stats: inventory value at cost & at MRP, projected profit,
@@ -275,6 +297,18 @@ Bank/cash wallets with computed balances.
 - Amounts formatted via `utils/formatters.ts` (`formatAmount`, `formatDate` → `d/M/yyyy`).
   Dates picked with `CustomDatePicker`.
 - Several pages have a "hide amounts" (`******`) banking-style privacy toggle.
+- **Mobile / responsive (phones are used daily — keep this working when adding UI):**
+  - Tailwind is loaded via **CDN in `frontend/index.html`**. That file has a `@media (max-width: 639px)` block
+    scaling down paddings/radii/headings (`html font-size: 14px`) and the viewport meta disables pinch-zoom.
+    Because it overrides plain classes like `p-6`, use **prefixed classes** (`p-3 md:p-6`) when you need a
+    different phone size — `md:`-prefixed classes are not affected by those overrides.
+  - `Sidebar.tsx` has the desktop sidebar, a mobile top bar + drawer, and a **bottom nav bar**
+    (Home/Sales/Stock/Expenses/Menu, `lg:hidden`); `ProtectedRoute` adds bottom padding for it.
+  - Pattern for list pages: render a **card/compact-row list with `md:hidden`** and keep the desktop table in
+    `hidden md:block`. Done for Sales, Expenses, Stock (balance + logs), Dealer Khata list, KhataDetail ledger, Products.
+    Still horizontally-scrolling tables on phones: ProductDetail history, CompanyKhataDetail, MoneyAccountDetail.
+  - Never hide actions behind `group-hover` only (no hover on touch) — use `opacity-100 md:opacity-0 md:group-hover:opacity-100`.
+  - Modals are `fixed inset-0` with `max-h-[9xvh] overflow-y-auto`; keep them compact (phone gets 0.5rem gutters).
 
 ---
 
@@ -293,7 +327,9 @@ Bank/cash wallets with computed balances.
 7. **Migrations live in `startup_event`**, not Alembic — add `ADD COLUMN IF NOT EXISTS` there.
 8. **snake_case (API) ↔ camelCase (FE)** must be mapped by hand in DataContext / `*Api.ts`.
 9. `db/session.py` hardcodes a Supabase IPv4 `hostaddr` to bypass flaky DNS — only relevant for that host.
-10. Business logic belongs in `crud/`; endpoints stay thin; `models.py` and schema files are the contracts.
+10. Dealer-linked sales: never delete/add individual rows of a khata invoice from the Sales page without re-syncing the
+    KhataEntry (see Sales page UI notes in §5C).
+11. Business logic belongs in `crud/`; endpoints stay thin; `models.py` and schema files are the contracts.
 
 ---
 
