@@ -156,7 +156,7 @@ const Khata: React.FC = () => {
       setBlockedDialog({
         isOpen: true,
         title: 'Cannot Delete Dealer',
-        message: `"${dealer.name}" has ${dealer.entry_count} transaction ${dealer.entry_count === 1 ? 'log' : 'logs'} recorded in their Khata (Total Credit: Rs. ${formatAmount(dealer.total_credit)}, Total Recovery: Rs. ${formatAmount(dealer.total_recovery)}). You cannot delete a dealer while active transactions exist. Please clear or delete all Khata entries first.`
+        message: `"${dealer.name}" has ${dealer.entry_count} transaction ${dealer.entry_count === 1 ? 'log' : 'logs'} recorded in their Khata. You cannot delete a dealer while active transactions exist. Please clear or delete all Khata entries first.`
       });
       return;
     }
@@ -217,24 +217,24 @@ const Khata: React.FC = () => {
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
       
       {/* Header & Quick Action Buttons */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-rose-600" />
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+            <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-rose-600" />
             Khata System
           </h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">
             Maintain dealer credits, sprays distributed to farmers, and cash recoveries
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-3 gap-2 md:flex md:flex-wrap md:gap-3">
           <button
             onClick={() => {
               setTargetDealerId(undefined);
               setCreditModalMode('credit');
               setCreditModalOpen(true);
             }}
-            className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-3.5 rounded-2xl flex items-center gap-2.5 font-bold shadow-xl shadow-rose-600/20 active:scale-95 transition-all text-sm"
+            className="bg-rose-600 hover:bg-rose-700 text-white px-2 py-3 md:px-6 md:py-3.5 rounded-xl md:rounded-2xl flex items-center justify-center gap-1.5 md:gap-2.5 font-bold shadow-xl shadow-rose-600/20 active:scale-95 transition-all text-[11px] md:text-sm"
           >
             <CreditCard className="w-4 h-4 stroke-[2.5px]" />
             CREDIT SALE
@@ -245,14 +245,14 @@ const Khata: React.FC = () => {
               setCreditModalMode('recovery');
               setCreditModalOpen(true);
             }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3.5 rounded-2xl flex items-center gap-2.5 font-bold shadow-xl shadow-emerald-600/20 active:scale-95 transition-all text-sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-3 md:px-6 md:py-3.5 rounded-xl md:rounded-2xl flex items-center justify-center gap-1.5 md:gap-2.5 font-bold shadow-xl shadow-emerald-600/20 active:scale-95 transition-all text-[11px] md:text-sm"
           >
             <Wallet className="w-4 h-4 stroke-[2.5px]" />
             RECOVERY
           </button>
           <button
             onClick={handleOpenAddDealer}
-            className="bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 px-6 py-3.5 rounded-2xl flex items-center gap-2 font-bold shadow-xl active:scale-95 transition-all text-sm"
+            className="bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 px-2 py-3 md:px-6 md:py-3.5 rounded-xl md:rounded-2xl flex items-center justify-center gap-1.5 md:gap-2 font-bold shadow-xl active:scale-95 transition-all text-[11px] md:text-sm"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
             ADD DEALER
@@ -260,68 +260,36 @@ const Khata: React.FC = () => {
         </div>
       </div>
 
-      {/* Top 4 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-3 md:gap-5">
         {/* Total Accounts */}
-        <div className="bg-white dark:bg-slate-800/80 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-800/80 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
               Khata Accounts
             </p>
-            <h3 className="text-3xl font-black text-slate-900 dark:text-white">
+            <h3 className="text-xl md:text-3xl font-black text-slate-900 dark:text-white">
               {metrics.totalAccounts}
             </h3>
-            <p className="text-xs text-slate-400 font-bold mt-1">Field Officers & Dealers</p>
+            <p className="hidden md:block text-xs text-slate-400 font-bold mt-1">Field Officers & Dealers</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Users className="w-6 h-6" />
           </div>
         </div>
 
-        {/* Total Credit */}
-        <div className="bg-rose-50 dark:bg-rose-900/10 p-6 rounded-3xl border border-rose-100 dark:border-rose-800/30 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-1">
-              Total Credit Dispatched
-            </p>
-            <h3 className="text-3xl font-black text-rose-700 dark:text-rose-300">
-              Rs. {formatAmount(metrics.totalCredit)}
-            </h3>
-            <p className="text-xs text-rose-600/70 dark:text-rose-400/70 font-bold mt-1">Total spray value given</p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center text-rose-600 dark:text-rose-400">
-            <CreditCard className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Total Recovery */}
-        <div className="bg-emerald-50 dark:bg-emerald-900/10 p-6 rounded-3xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">
-              Total Recovery Received
-            </p>
-            <h3 className="text-3xl font-black text-emerald-700 dark:text-emerald-300">
-              Rs. {formatAmount(metrics.totalRecovery)}
-            </h3>
-            <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold mt-1">Cash collected back</p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <Wallet className="w-6 h-6" />
-          </div>
-        </div>
-
         {/* Net Market Dues (Left) */}
-        <div className="bg-gradient-to-br from-rose-600 to-rose-700 text-white p-6 rounded-3xl shadow-xl shadow-rose-600/20 flex items-center justify-between">
+        <div className="bg-gradient-to-br from-rose-600 to-rose-700 text-white p-3 md:p-6 rounded-2xl md:rounded-3xl shadow-xl shadow-rose-600/20 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-rose-200 mb-1">
               Net Amount Left
             </p>
-            <h3 className="text-3xl font-black">
+            <h3 className="text-xl md:text-3xl font-black">
               Rs. {formatAmount(metrics.totalPending)}
             </h3>
-            <p className="text-xs text-rose-100 font-bold mt-1">Pending market credit</p>
+            <p className="hidden md:block text-xs text-rose-100 font-bold mt-1">Pending market credit</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/20 items-center justify-center text-white">
             <AlertCircle className="w-6 h-6" />
           </div>
         </div>
@@ -431,16 +399,63 @@ const Khata: React.FC = () => {
         </div>
       ) : viewMode === 'list' ? (
         /* List / Table View (Compact & Scannable for Many Dealers) */
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <>
+        {/* Mobile: compact dealer rows */}
+        <div className="md:hidden bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm divide-y divide-slate-100 dark:divide-slate-700/60 overflow-hidden">
+          {filteredDealers.map(dealer => {
+            const hasPending = dealer.total_left > 0;
+            const initials = dealer.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            return (
+              <div
+                key={dealer.id}
+                onClick={() => navigate(`/khata/${dealer.id}`)}
+                className="px-3 py-3 flex items-center gap-3 active:bg-rose-50/50 dark:active:bg-slate-700/40"
+              >
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 text-white font-black text-xs flex items-center justify-center shrink-0">
+                  {initials || 'KH'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-sm text-slate-900 dark:text-white truncate">{dealer.name}</p>
+                  <p className="text-[11px] text-slate-400 font-bold truncate">
+                    {dealer.phone || dealer.role || 'Dealer'} · {dealer.entry_count} {dealer.entry_count === 1 ? 'entry' : 'entries'}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  {hasPending ? (
+                    <p className="text-sm font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">Rs. {formatAmount(dealer.total_left)}</p>
+                  ) : (
+                    <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Settled</p>
+                  )}
+                  <div className="flex items-center justify-end gap-1 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => handleOpenEditDealer(dealer, e)}
+                      className="p-1.5 text-slate-400 hover:text-blue-500 bg-slate-100 dark:bg-slate-700/60 rounded-lg"
+                      title="Edit Dealer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteClick(dealer, e)}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 dark:bg-slate-700/60 rounded-lg"
+                      title="Delete Dealer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden md:block bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 text-[10px] font-black uppercase tracking-widest text-slate-400">
                   <th className="px-6 py-4">Dealer / Account</th>
                   <th className="px-6 py-4">Contact</th>
-                  <th className="px-6 py-4 text-right text-rose-500">Total Credit</th>
-                  <th className="px-6 py-4 text-right text-emerald-500">Total Recovery</th>
-                  <th className="px-6 py-4 text-right">Net Amount Left</th>
+                                                      <th className="px-6 py-4 text-right">Net Amount Left</th>
                   <th className="px-6 py-4 text-center">Entries</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -488,16 +503,6 @@ const Khata: React.FC = () => {
                         ) : (
                           <span className="text-slate-300 dark:text-slate-600 font-medium">—</span>
                         )}
-                      </td>
-
-                      {/* Total Credit */}
-                      <td className="px-6 py-4 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                        {hasPending ? `Rs. ${formatAmount(dealer.total_credit)}` : <span className="text-slate-300 dark:text-slate-600 font-medium">—</span>}
-                      </td>
-
-                      {/* Total Recovery */}
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <span className="text-slate-300 dark:text-slate-600 font-medium">—</span>
                       </td>
 
                       {/* Net Amount Left */}
@@ -555,6 +560,7 @@ const Khata: React.FC = () => {
             </table>
           </div>
         </div>
+        </>
       ) : (
         /* Grid View Alternative */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -629,22 +635,6 @@ const Khata: React.FC = () => {
                       </span>
                       <span className="text-xs font-bold text-slate-400">
                         {dealer.entry_count} {dealer.entry_count === 1 ? 'entry' : 'entries'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Credit vs Recovery Breakdown */}
-                  <div className="grid grid-cols-2 gap-2 text-xs mb-4">
-                    <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl">
-                      <span className="text-slate-400 text-[10px] uppercase font-bold block">Credit</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {hasPending ? `Rs. ${formatAmount(dealer.total_credit)}` : '—'}
-                      </span>
-                    </div>
-                    <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl">
-                      <span className="text-slate-400 text-[10px] uppercase font-bold block">Recovery</span>
-                      <span className="font-bold text-slate-400 font-medium">
-                        —
                       </span>
                     </div>
                   </div>

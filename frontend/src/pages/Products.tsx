@@ -278,7 +278,57 @@ const Products: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-200/60 dark:border-slate-700">
+      {/* Mobile: product cards */}
+      <div className="md:hidden space-y-2">
+        {filteredProducts.map((product) => {
+          const comp = companies.find(c => c.id === product.companyId);
+          const stock = stocks.find(s => s.productId === product.id);
+          const remaining = stock?.remaining || 0;
+          return (
+            <div
+              key={product.id}
+              onClick={() => navigate(`/products/${product.id}`)}
+              className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/70 dark:border-slate-700 p-3 shadow-sm flex items-center gap-3 active:bg-emerald-50/60 dark:active:bg-slate-700/40"
+            >
+              <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                <Package className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate">{product.name}</p>
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">{comp?.name || 'N/A'}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-md font-black uppercase">{product.category}</span>
+                  {product.mrp && product.mrp > 0 && (
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">MRP: Rs. {formatAmount(product.mrp)}</span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div>
+                  <span className={`font-black text-lg ${remaining <= product.minStock ? 'text-rose-600' : 'text-emerald-600'}`}>{remaining}</span>
+                  <span className="text-[9px] ml-0.5 text-slate-400 font-bold uppercase">{product.unit}</span>
+                </div>
+                <div className="flex items-center justify-end gap-1 mt-0.5">
+                  <button onClick={(e) => handleEdit(e, product)} className="p-1.5 bg-slate-100 dark:bg-slate-700/60 text-slate-500 hover:text-emerald-500 rounded-lg" title="Edit">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={(e) => handleDeleteClick(e, product)} className="p-1.5 bg-slate-100 dark:bg-slate-700/60 text-slate-500 hover:text-red-500 rounded-lg" title="Delete">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {filteredProducts.length === 0 && (
+          <div className="py-16 text-center text-slate-400">
+            <Package className="w-12 h-12 mx-auto mb-3 opacity-10" />
+            <p className="font-bold">No products found.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="hidden md:block bg-white dark:bg-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-200/60 dark:border-slate-700">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="text-[10px] uppercase text-slate-400 font-black tracking-widest border-b border-slate-100 dark:border-slate-700">

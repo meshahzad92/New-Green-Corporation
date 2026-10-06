@@ -46,8 +46,6 @@ const StockPage: React.FC = () => {
 
   // Banking-style amount visibility toggle (hidden by default)
   const [amountsVisible, setAmountsVisible] = useState(false);
-  const maskAmount = (value: string | number) =>
-    amountsVisible ? value : '******';
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -246,32 +244,32 @@ const StockPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Inventory Ledger</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Inventory Ledger</h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Track supplier arrivals and current balances</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl flex items-center gap-3 font-bold shadow-xl shadow-emerald-600/20 transition-all active:scale-95"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 md:px-8 md:py-4 rounded-2xl flex items-center justify-center gap-3 font-bold shadow-xl shadow-emerald-600/20 transition-all active:scale-95"
         >
           <Plus className="w-5 h-5 stroke-[3px]" />
           STOCK INWARD
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row items-center gap-4">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
         <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 w-full md:w-fit">
           <button
             onClick={() => setActiveTab('balance')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'balance' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'balance' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
           >
             <ClipboardList className="w-4 h-4" />
             Balance
           </button>
           <button
             onClick={() => setActiveTab('logs')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
           >
             <History className="w-4 h-4" />
             Stock In Logs
@@ -285,7 +283,7 @@ const StockPage: React.FC = () => {
               <select
                 value={selectedCompany}
                 onChange={(e) => { setSelectedCompany(e.target.value); }}
-                className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white outline-none focus:border-emerald-500 min-w-[160px]"
+                className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-white outline-none focus:border-emerald-500 min-w-[130px] md:min-w-[160px]"
               >
                 <option value="all">🏢 All Companies</option>
                 {companies.map(c => (
@@ -323,10 +321,10 @@ const StockPage: React.FC = () => {
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             {/* Quick Day Buttons */}
-            <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl gap-1">
+            <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-slate-900 p-1 md:p-1.5 rounded-2xl gap-1 [&>button]:flex-1 sm:[&>button]:flex-none">
               <button
                 onClick={() => setSpecificDate(new Date())}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${specificDate && specificDate.toDateString() === new Date().toDateString()
+                className={`px-2 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${specificDate && specificDate.toDateString() === new Date().toDateString()
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-emerald-600'
                   }`}
@@ -339,7 +337,7 @@ const StockPage: React.FC = () => {
                   yesterday.setDate(yesterday.getDate() - 1);
                   setSpecificDate(yesterday);
                 }}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${specificDate && specificDate.toDateString() === new Date(new Date().setDate(new Date().getDate() - 1)).toDateString()
+                className={`px-2 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${specificDate && specificDate.toDateString() === new Date(new Date().setDate(new Date().getDate() - 1)).toDateString()
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-blue-600'
                   }`}
@@ -348,7 +346,7 @@ const StockPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setSpecificDate(null)}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${!specificDate ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400'
+                className={`px-2 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${!specificDate ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-600' : 'text-slate-400'
                   }`}
               >
                 All Logs
@@ -356,7 +354,7 @@ const StockPage: React.FC = () => {
             </div>
 
             {/* Custom Date Picker */}
-            <div className="w-48">
+            <div className="w-full sm:w-48">
               <CustomDatePicker
                 selected={specificDate}
                 onChange={(date) => setSpecificDate(date)}
@@ -368,14 +366,14 @@ const StockPage: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-sm border border-slate-200/60 dark:border-slate-700">
-        <div className="relative mb-8 flex items-center gap-3">
+      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-3 md:p-6 shadow-sm border border-slate-200/60 dark:border-slate-700">
+        <div className="relative mb-4 md:mb-8 flex items-center gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
               placeholder={`Search ${activeTab === 'balance' ? 'products' : 'suppliers'}...`}
-              className="w-full pl-14 pr-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none outline-none font-bold text-slate-900 dark:text-white"
+              className="w-full pl-11 md:pl-14 pr-4 md:pr-6 py-3 md:py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none outline-none font-bold text-slate-900 dark:text-white"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -395,43 +393,161 @@ const StockPage: React.FC = () => {
         </div>
 
         {activeTab === 'balance' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-blue-100 dark:border-blue-900/30">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-3 md:p-5 rounded-2xl md:rounded-3xl border border-blue-100 dark:border-blue-900/30">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Total Investment</span>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">Purchase Cost</span>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                Rs. {formatAmount(maskAmount(stockSummary.totalCost))}
+              <p className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
+                {amountsVisible ? `Rs. ${formatAmount(stockSummary.totalCost)}` : 'Rs. ******'}
               </p>
-              <p className="text-[11px] text-slate-400 font-medium mt-1">Capital invested across {formatAmount(stockSummary.totalItems)} units</p>
+              <p className="hidden sm:block text-[11px] text-slate-400 font-medium mt-1">Capital invested across {formatAmount(stockSummary.totalItems)} units</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-purple-100 dark:border-purple-900/30">
+            <div className="bg-gradient-to-br from-purple-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-3 md:p-5 rounded-2xl md:rounded-3xl border border-purple-100 dark:border-purple-900/30">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Projected Return</span>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">Retail MRP</span>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                Rs. {formatAmount(maskAmount(stockSummary.totalMrp))}
+              <p className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
+                {amountsVisible ? `Rs. ${formatAmount(stockSummary.totalMrp)}` : 'Rs. ******'}
               </p>
-              <p className="text-[11px] text-slate-400 font-medium mt-1">Total revenue if all sold at printed MRP</p>
+              <p className="hidden sm:block text-[11px] text-slate-400 font-medium mt-1">Total revenue if all sold at printed MRP</p>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-900/30">
+            <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-slate-900 dark:to-slate-800/60 p-3 md:p-5 rounded-2xl md:rounded-3xl border border-emerald-100 dark:border-emerald-900/30">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Expected Profit</span>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">+{stockSummary.marginPct}% Margin</span>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
+              <p className="text-xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
                 {amountsVisible ? `+Rs. ${formatAmount(stockSummary.profit)}` : 'Rs. ******'}
               </p>
-              <p className="text-[11px] text-slate-400 font-medium mt-1">Gross profit margin if sold at MRP</p>
+              <p className="hidden sm:block text-[11px] text-slate-400 font-medium mt-1">Gross profit margin if sold at MRP</p>
             </div>
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        {/* Mobile: card list */}
+        <div className="md:hidden space-y-2">
+          {activeTab === 'balance' ? filteredProducts.map((product) => {
+            const stock = stocks.find(s => s.productId === product.id);
+            const remaining = stock?.remaining || 0;
+            const isCritical = remaining < (product.minStock || 5);
+            const cost = product.purchasePrice || 0;
+            const mrp = product.mrp && product.mrp > 0 ? product.mrp : cost;
+            const totalCost = cost * remaining;
+            const totalMrp = mrp * remaining;
+            const diff = totalMrp - totalCost;
+            return (
+              <div key={product.id} className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-3 border border-slate-100 dark:border-slate-700">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{product.name}</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-tight">{product.unit}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`font-black text-xl leading-none ${isCritical ? 'text-rose-600' : 'text-emerald-600'}`}>{formatAmount(remaining)}</span>
+                    <p className={`text-[9px] font-black uppercase tracking-wider ${isCritical ? 'text-rose-600' : 'text-emerald-600'}`}>{isCritical ? 'Critical' : 'Normal'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-2 pt-2 border-t border-slate-200/70 dark:border-slate-700 text-[11px]">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Purchase</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      Rs. {formatAmount(cost)}
+                      {product.companyDiscount && product.companyDiscount > 0 ? (
+                        <span className="ml-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.5 rounded">{product.companyDiscount}% off</span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Retail (MRP)</p>
+                    <p className="font-bold text-purple-600 dark:text-purple-400">Rs. {formatAmount(mrp)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Investment</p>
+                    <p className="font-black text-blue-600 dark:text-blue-400">Rs. {formatAmount(totalCost)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Value at MRP</p>
+                    <p className="font-black text-slate-900 dark:text-white">
+                      Rs. {formatAmount(totalMrp)}
+                      {diff > 0 && remaining > 0 ? <span className="ml-1 text-[9px] text-emerald-600 font-bold">+{formatAmount(diff)}</span> : null}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }) : filteredLogs.map((transaction) => {
+            const product = products.find(p => p.id === transaction.productId);
+            return (
+              <div key={transaction.id} className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-3 border border-slate-100 dark:border-slate-700">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{product?.name || 'Unknown'}</p>
+                    <p className="text-[11px] font-black text-slate-600 dark:text-slate-300 flex items-center gap-1 truncate">
+                      <Building2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                      {transaction.partyName}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400">{formatDate(transaction.date)}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-lg font-black text-sm">+ {transaction.quantity}</span>
+                    <p className="text-[11px] font-black text-slate-900 dark:text-white mt-1 whitespace-nowrap">Rs. {formatAmount(transaction.purchasePrice)}</p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      const hasDiscount = transaction.companyDiscount !== undefined && transaction.companyDiscount !== null && transaction.companyDiscount > 0;
+                      setEditModal({
+                        isOpen: true,
+                        transactionId: transaction.id,
+                        productName: product?.name || 'Unknown',
+                        unit: product?.unit || 'Units',
+                        partyName: transaction.partyName || '',
+                        quantity: transaction.quantity.toString(),
+                        mrp: transaction.mrp ? transaction.mrp.toString() : '',
+                        discount: hasDiscount ? transaction.companyDiscount!.toString() : '',
+                        purchasePrice: (!hasDiscount && transaction.purchasePrice > 0) ? transaction.purchasePrice.toString() : '',
+                        showDiscount: hasDiscount,
+                        date: new Date(transaction.date)
+                      });
+                    }}
+                    className="p-2 text-slate-500 hover:text-emerald-600 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                    title="Edit Stock Entry"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmDialog({
+                        isOpen: true,
+                        transactionId: transaction.id,
+                        productName: product?.name || 'Unknown',
+                        partyName: transaction.partyName
+                      });
+                    }}
+                    className="p-2 text-slate-500 hover:text-rose-500 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                    title="Delete Stock Entry"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {(activeTab === 'balance' ? filteredProducts : filteredLogs).length === 0 && (
+            <div className="py-12 text-center text-slate-400">
+              <Layers className="w-12 h-12 mx-auto mb-3 opacity-10" />
+              <p className="font-bold">No results found.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           {activeTab === 'balance' ? (
             <table className="w-full text-left">
               <thead className="text-[10px] uppercase text-slate-400 font-black tracking-widest border-b border-slate-100 dark:border-slate-700">
@@ -469,9 +585,9 @@ const StockPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-slate-900 dark:text-white text-sm">
-                          Rs. {formatAmount(maskAmount(cost))}
+                          Rs. {formatAmount(cost)}
                         </p>
-                        {amountsVisible && product.companyDiscount && product.companyDiscount > 0 ? (
+                        {product.companyDiscount && product.companyDiscount > 0 ? (
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
                             {product.companyDiscount}% off
                           </span>
@@ -479,20 +595,20 @@ const StockPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-bold text-purple-600 dark:text-purple-400 text-sm">
-                          Rs. {formatAmount(maskAmount(mrp))}
+                          Rs. {formatAmount(mrp)}
                         </p>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-black text-blue-600 dark:text-blue-400 text-sm">
-                          Rs. {formatAmount(maskAmount(totalCost))}
+                          Rs. {formatAmount(totalCost)}
                         </p>
                         <p className="text-[10px] text-slate-400 font-semibold">Invested capital</p>
                       </td>
                       <td className="px-6 py-5">
                         <p className="font-black text-slate-900 dark:text-white text-sm">
-                          Rs. {formatAmount(maskAmount(totalMrp))}
+                          Rs. {formatAmount(totalMrp)}
                         </p>
-                        {diff > 0 && remaining > 0 && amountsVisible ? (
+                        {diff > 0 && remaining > 0 ? (
                           <p className="text-[10px] text-emerald-600 font-bold">
                             +{formatAmount(diff)} profit
                           </p>
@@ -551,7 +667,7 @@ const StockPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-8 py-6 italic font-black text-slate-900 dark:text-white">
-                        Rs. {formatAmount(maskAmount(transaction.purchasePrice))}
+                        Rs. {formatAmount(transaction.purchasePrice)}
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">

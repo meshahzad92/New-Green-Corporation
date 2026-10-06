@@ -20,9 +20,9 @@ interface DataContextType {
   updateProductPrices: (id: string, prices: { purchasePrice: number; mrp?: number | null; companyDiscount?: number | null }) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<boolean>;
   addStock: (productId: string, quantity: number, partyName: string, purchasePrice: number, mrp?: number, companyDiscount?: number) => Promise<void>;
-  addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
+  addSale: (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number, invoice?: { id: string; no?: string }) => Promise<boolean>;
   addBulkSale: (customerName: string, items: Array<{ productId: string; quantity: number; sellingPrice: number }>, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number) => Promise<boolean>;
-  updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date }>) => Promise<boolean>;
+  updateSale: (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date, invoiceId: string, invoiceNo: string }>) => Promise<boolean>;
   deleteSale: (id: string) => Promise<void>;
   deleteInvoice: (invoiceId: string) => Promise<void>;
   updateStockTransaction: (id: string, updates: { quantity?: number; partyName?: string; purchasePrice?: number; mrp?: number | null; companyDiscount?: number | null; date?: Date }) => Promise<boolean>;
@@ -370,7 +370,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addSale = async (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number): Promise<boolean> => {
+  const addSale = async (productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone?: string, saleDate?: Date, paidAmount?: number, invoice?: { id: string; no?: string }): Promise<boolean> => {
     try {
       const payload: any = {
         product_id: productId,
@@ -383,6 +383,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (paidAmount !== undefined && !isNaN(paidAmount)) {
         payload.paid_amount = paidAmount;
+      }
+
+      if (invoice) {
+        payload.invoice_id = invoice.id;
+        if (invoice.no) payload.invoice_no = invoice.no;
       }
 
       // Add custom date if provided
@@ -436,7 +441,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateSale = async (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date }>): Promise<boolean> => {
+  const updateSale = async (id: string, updates: Partial<{ productId: string, quantity: number, customerName: string, sellingPrice: number, paymentType: 'Credit' | 'Debit', customerPhone: string, paidAmount: number, saleDate: Date, invoiceId: string, invoiceNo: string }>): Promise<boolean> => {
     try {
       const payload: any = {};
       if (updates.productId !== undefined) payload.product_id = updates.productId;
@@ -447,6 +452,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.paymentType !== undefined) payload.payment_type = updates.paymentType;
       if (updates.paidAmount !== undefined) payload.paid_amount = updates.paidAmount;
       if (updates.saleDate !== undefined) payload.created_at = updates.saleDate.toISOString();
+      if (updates.invoiceId !== undefined) payload.invoice_id = updates.invoiceId;
+      if (updates.invoiceNo !== undefined) payload.invoice_no = updates.invoiceNo;
 
       await api.put(`/sales/${id}`, payload);
       await refreshData();

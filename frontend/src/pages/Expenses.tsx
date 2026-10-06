@@ -335,51 +335,51 @@ const ExpensesPage: React.FC = () => {
       </div>
 
       {/* Summary Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
         {/* Outflow / Expenses */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
           <div>
             <span className="text-xs font-black uppercase tracking-wider text-slate-400">
               {viewMode === 'date' ? 'Daily Expenses (Out)' : 'Total Expenses (Out)'}
             </span>
-            <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+            <div className="text-lg md:text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
               Rs. {formatAmount(totalExpenses)}
             </div>
             <span className="text-[11px] font-semibold text-rose-500/80 flex items-center gap-1 mt-1">
               <ArrowDownRight className="w-3.5 h-3.5" /> Money Paid Out
             </span>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+          <div className="hidden sm:flex w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
             <TrendingDown className="w-7 h-7" />
           </div>
         </div>
 
         {/* Inflow / Income */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
           <div>
             <span className="text-xs font-black uppercase tracking-wider text-slate-400">
               {viewMode === 'date' ? 'Daily Income (In)' : 'Total Income (In)'}
             </span>
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+            <div className="text-lg md:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
               Rs. {formatAmount(totalIncome)}
             </div>
             <span className="text-[11px] font-semibold text-emerald-500/80 flex items-center gap-1 mt-1">
               <ArrowUpRight className="w-3.5 h-3.5" /> Gifts / Reimbursements
             </span>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+          <div className="hidden sm:flex w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <TrendingUp className="w-7 h-7" />
           </div>
         </div>
 
         {/* Net Flow */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-sm border border-slate-200/80 dark:border-slate-700 flex items-center justify-between col-span-2 md:col-span-1">
           <div>
             <span className="text-xs font-black uppercase tracking-wider text-slate-400">
               Net Financial Flow
             </span>
             <div
-              className={`text-2xl font-black mt-1 ${
+              className={`text-lg md:text-2xl font-black mt-1 ${
                 netTotal >= 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-rose-600 dark:text-rose-400'
@@ -393,7 +393,7 @@ const ExpensesPage: React.FC = () => {
             </span>
           </div>
           <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+            className={`hidden sm:flex w-14 h-14 rounded-2xl items-center justify-center ${
               netTotal >= 0
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
                 : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
@@ -523,38 +523,18 @@ const ExpensesPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Quantity & Details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      quantity: Math.max(1, parseInt(e.target.value) || 1),
-                    })
-                  }
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold focus:border-purple-500 focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">
-                  Details (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.details}
-                  onChange={(e) => setFormData({ ...formData, details: e.target.value })}
-                  placeholder="Additional notes, payee name, or remarks..."
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:border-purple-500 focus:outline-none transition-colors"
-                />
-              </div>
+            {/* Details */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">
+                Details (Optional)
+              </label>
+              <input
+                type="text"
+                value={formData.details}
+                onChange={(e) => setFormData({ ...formData, details: e.target.value })}
+                placeholder="Additional notes, payee name, or remarks..."
+                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:border-purple-500 focus:outline-none transition-colors"
+              />
             </div>
 
             {/* Form Buttons */}
@@ -626,8 +606,53 @@ const ExpensesPage: React.FC = () => {
               Click "Add Expense / Income" or use the quick buttons above to navigate
             </p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
+                ) : (
+          <>
+          {/* Mobile: compact list */}
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700/60">
+            {filteredExpenses.map((expense) => {
+              const isExpense = expense.amount < 0;
+              const absAmt = Math.abs(expense.amount);
+              const entryDate = expense.expense_date || expense.created_at;
+              return (
+                <div key={expense.id} className="px-3 py-3 flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isExpense ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'}`}>
+                    {isExpense ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{expense.name}</p>
+                    <p className="text-[10px] font-semibold text-slate-400 truncate">
+                      {formatDate(entryDate)} · {new Date(expense.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      {expense.details ? ` · ${expense.details}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-black whitespace-nowrap ${isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {isExpense ? '-' : '+'}Rs. {formatAmount(absAmt)}
+                    </p>
+                    <div className="flex items-center justify-end gap-1 mt-0.5">
+                      <button
+                        onClick={() => startEdit(expense)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 bg-slate-100 dark:bg-slate-700/60 rounded-lg"
+                        title="Edit Entry"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDialog({ isOpen: true, expenseId: expense.id, expenseName: expense.name })}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-100 dark:bg-slate-700/60 rounded-lg"
+                        title="Delete Entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                 <tr>
@@ -642,9 +667,6 @@ const ExpensesPage: React.FC = () => {
                   </th>
                   <th className="px-6 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-400">
                     Amount
-                  </th>
-                  <th className="px-6 py-4 text-center text-[11px] font-black uppercase tracking-wider text-slate-400">
-                    Qty
                   </th>
                   <th className="px-6 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-400">
                     Details
@@ -710,11 +732,6 @@ const ExpensesPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Quantity */}
-                      <td className="px-6 py-4 text-center font-bold text-xs text-slate-600 dark:text-slate-400">
-                        {expense.quantity || 1}
-                      </td>
-
                       {/* Details */}
                       <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">
                         {expense.details || '—'}
@@ -759,6 +776,7 @@ const ExpensesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

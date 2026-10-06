@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { khataService, KhataAccount } from '../utils/khataApi';
 import CustomDatePicker from './CustomDatePicker';
@@ -39,6 +39,65 @@ const createInitialItem = (): CreditSaleItem => ({
   price: '0',
   total: '0'
 });
+
+interface DealerPickerProps {
+  dealers: KhataAccount[];
+  value: string;
+  onChange: (id: string) => void;
+}
+
+// Searchable dealer dropdown (type name or phone to filter)
+const DealerPicker: React.FC<DealerPickerProps> = ({ dealers, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selected = dealers.find(d => d.id === value);
+  const q = query.trim().toLowerCase();
+  const filtered = dealers.filter(d =>
+    !q || d.name.toLowerCase().includes(q) || (d.phone && d.phone.includes(q))
+  );
+
+  return (
+    <div ref={ref} className="relative">
+      <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <input
+        type="text"
+        value={open ? query : (selected ? `${selected.name}${selected.phone ? ` (${selected.phone})` : ''}` : '')}
+        placeholder="Search dealer by name or phone..."
+        onFocus={() => { setQuery(''); setOpen(true); }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-sm outline-none focus:border-blue-500"
+      />
+      {open && (
+        <ul className="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1">
+          {filtered.length === 0 ? (
+            <li className="px-4 py-3 text-xs font-bold text-slate-400">No dealers found</li>
+          ) : filtered.map(d => (
+            <li key={d.id}>
+              <button
+                type="button"
+                onClick={() => { onChange(d.id); setOpen(false); setQuery(''); }}
+                className={`w-full text-left px-4 py-2 text-sm font-bold hover:bg-blue-50 dark:hover:bg-slate-700 flex justify-between gap-3 ${d.id === value ? 'bg-blue-50/60 dark:bg-slate-700/60 text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-100'}`}
+              >
+                <span className="truncate">{d.name}{d.phone ? ` (${d.phone})` : ''}</span>
+                <span className="text-[11px] text-slate-400 whitespace-nowrap">Left: Rs. {formatAmount(d.total_left)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 interface CreditSaleModalProps {
   isOpen: boolean;
@@ -276,10 +335,10 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[94vh]">
         
         {/* Header with Mode Toggle */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
           <div>
             <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
               {activeTab === 'credit' ? (
@@ -305,12 +364,12 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
         </div>
 
         {/* Segmented Switch */}
-        <div className="px-6 pt-4 pb-2">
+        <div className="px-5 pt-3 pb-1">
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
             <button
               type="button"
               onClick={() => { setActiveTab('credit'); setErrorMessage(''); }}
-              className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
                 activeTab === 'credit'
                   ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -322,7 +381,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
             <button
               type="button"
               onClick={() => { setActiveTab('recovery'); setErrorMessage(''); }}
-              className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
                 activeTab === 'recovery'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -335,7 +394,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
         </div>
 
         {/* Scrollable Form Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
           {errorMessage && (
             <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-300 text-xs font-bold animate-in fade-in">
               <AlertCircle className="w-5 h-5 shrink-0" />
@@ -400,59 +459,45 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="relative">
-                <select
-                  value={selectedDealerId}
-                  onChange={(e) => setSelectedDealerId(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white text-sm outline-none focus:border-blue-500 appearance-none"
-                  required
-                >
-                  <option value="" disabled>-- Select Dealer / Officer --</option>
-                  {dealers.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} {d.phone ? `(${d.phone})` : ''} - [Balance Left: Rs. {formatAmount(d.total_left)}]
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                  ▼
+              <DealerPicker dealers={dealers} value={selectedDealerId} onChange={setSelectedDealerId} />
+            )}
+          </div>
+
+          {/* Date (+ Farmer name for credit sales) */}
+          <div className={activeTab === 'credit' ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''}>
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Transaction Date *
+              </label>
+              <CustomDatePicker
+                selected={entryDate}
+                onChange={(d) => setEntryDate(d || new Date())}
+                placeholderText="Select date..."
+              />
+            </div>
+
+            {activeTab === 'credit' && (
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Farmer / Next Customer (Optional)
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Farmer who received this spray"
+                    value={farmerName}
+                    onChange={(e) => setFarmerName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-sm outline-none focus:border-rose-500"
+                  />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Date Picker */}
-          <div className="space-y-2">
-            <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Transaction Date *
-            </label>
-            <CustomDatePicker
-              selected={entryDate}
-              onChange={(d) => setEntryDate(d || new Date())}
-              placeholderText="Select date..."
-            />
-          </div>
-
           {/* MODE 1: CREDIT SALE FIELDS */}
           {activeTab === 'credit' && (
             <>
-              {/* Farmer Name */}
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Farmer / Next Customer Name (Optional)
-                </label>
-                <div className="relative">
-                  <User className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Enter the farmer or person who received this spray (optional)"
-                    value={farmerName}
-                    onChange={(e) => setFarmerName(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white text-sm outline-none focus:border-rose-500"
-                  />
-                </div>
-              </div>
-
               {/* Products Section */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -464,7 +509,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                   </span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {items.map((item, idx) => {
                     const selProd = products.find(p => p.id === item.productId);
                     const st = stocks.find(s => s.productId === item.productId);
@@ -480,33 +525,17 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3 relative group"
+                        className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2"
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                            Item #{idx + 1}
-                          </span>
-                          {items.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeItemRow(item.id)}
-                              className="text-slate-400 hover:text-rose-500 p-1 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Company and Product Search Filter */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div className="space-y-1">
+                        <div className="grid grid-cols-12 gap-2">
+                          <div className="col-span-12 sm:col-span-3 space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                              Company Filter
+                              Company
                             </label>
                             <select
                               value={item.companyId}
                               onChange={(e) => updateItem(item.id, { companyId: e.target.value })}
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-200 text-xs outline-none focus:border-rose-500"
+                              className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-200 text-xs outline-none focus:border-rose-500"
                             >
                               <option value="all">🏢 All Companies</option>
                               {companies.map(c => (
@@ -515,68 +544,67 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                             </select>
                           </div>
 
-                          <div className="space-y-1">
+                          <div className="col-span-12 sm:col-span-3 space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                               Search Product
                             </label>
                             <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                               <input
                                 type="text"
-                                placeholder="Type to search (e.g. 100ml)..."
+                                placeholder="e.g. 100ml..."
                                 value={item.search}
                                 onChange={(e) => updateItem(item.id, { search: e.target.value })}
-                                className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-xs outline-none focus:border-rose-500"
+                                className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-xs outline-none focus:border-rose-500"
                               />
                             </div>
                           </div>
+
+                          <div className="col-span-12 sm:col-span-6 space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                              <span className="inline-block bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded px-1.5 mr-1.5">#{idx + 1}</span>
+                              Select Product * ({itemFilteredProducts.length})
+                            </label>
+                            <select
+                              value={item.productId}
+                              onChange={(e) => {
+                                const newProdId = e.target.value;
+                                const newProd = products.find(p => p.id === newProdId);
+                                updateItem(item.id, {
+                                  productId: newProdId,
+                                  companyId: newProd?.companyId || item.companyId
+                                });
+                              }}
+                              className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-xs outline-none focus:border-rose-500"
+                              required
+                            >
+                              <option value="">-- Choose Product --</option>
+                              {itemFilteredProducts.map(p => {
+                                const pStock = stocks.find(s => s.productId === p.id);
+                                const pComp = companies.find(c => c.id === p.companyId);
+                                return (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} {pComp ? `(${pComp.name})` : ''} - [{pStock?.remaining || 0} in stock]
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
                         </div>
 
-                        {/* Product Selector */}
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            Select Product * ({itemFilteredProducts.length} matching)
-                          </label>
-                          <select
-                            value={item.productId}
-                            onChange={(e) => {
-                              const newProdId = e.target.value;
-                              const newProd = products.find(p => p.id === newProdId);
-                              updateItem(item.id, {
-                                productId: newProdId,
-                                companyId: newProd?.companyId || item.companyId
-                              });
-                            }}
-                            className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-xs outline-none focus:border-rose-500"
-                            required
-                          >
-                            <option value="">-- Choose Product --</option>
-                            {itemFilteredProducts.map(p => {
-                              const pStock = stocks.find(s => s.productId === p.id);
-                              const pComp = companies.find(c => c.id === p.companyId);
-                              return (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} {pComp ? `(${pComp.name})` : ''} - [{pStock?.remaining || 0} in stock]
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-
-                        {/* Quantity and Price */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
+                        <div className="grid grid-cols-12 gap-2 items-end">
+                          <div className="col-span-4 sm:col-span-2 space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Qty *</label>
                             <input
                               type="number"
                               min="1"
                               value={item.quantity}
                               onChange={(e) => updateItem(item.id, { quantity: e.target.value })}
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-xs outline-none focus:border-rose-500"
+                              className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white text-xs outline-none focus:border-rose-500"
                               required
                             />
                           </div>
-                          <div className="space-y-1">
+                          <div className="col-span-8 sm:col-span-4 space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Charged (Rs.) *</label>
                             <input
                               type="number"
@@ -584,15 +612,25 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                               step="any"
                               value={item.total}
                               onChange={(e) => updateItem(item.id, { total: e.target.value })}
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-rose-600 dark:text-rose-400 text-xs outline-none focus:border-rose-500"
+                              className="w-full px-2.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-rose-600 dark:text-rose-400 text-xs outline-none focus:border-rose-500"
                               required
                             />
                           </div>
-                        </div>
-
-                        {/* Rate preview */}
-                        <div className="text-right text-[11px] text-slate-400 font-medium">
-                          Rate: Rs. {formatAmount(parseFloat(item.price))} / unit
+                          <div className="col-span-9 sm:col-span-5 text-[11px] text-slate-400 font-medium pb-2">
+                            Rate: Rs. {formatAmount(parseFloat(item.price))} / unit
+                          </div>
+                          <div className="col-span-3 sm:col-span-1 flex justify-end">
+                            {items.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeItemRow(item.id)}
+                                className="text-slate-400 hover:text-rose-500 p-2 transition-colors"
+                                title="Remove item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -602,7 +640,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                 <button
                   type="button"
                   onClick={addItemRow}
-                  className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-rose-400 rounded-2xl text-xs font-black text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-all"
+                  className="w-full py-2.5 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-rose-400 rounded-xl text-xs font-black text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   + Add Another Product
@@ -610,7 +648,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
               </div>
 
               {/* Grand Total Credit Card */}
-              <div className="p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40 rounded-2xl flex justify-between items-center">
+              <div className="px-4 py-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40 rounded-xl flex justify-between items-center">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 block">
                     Total Credit Amount
@@ -627,15 +665,6 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
           {/* MODE 2: RECOVERY FIELDS */}
           {activeTab === 'recovery' && (
             <div className="space-y-4">
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl">
-                <span className="text-xs text-emerald-800 dark:text-emerald-300 font-bold block mb-1">
-                  💡 Cash Recovery Log
-                </span>
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Enter the cash or payment given by the dealer. This amount will be directly subtracted from their total balance left.
-                </p>
-              </div>
-
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Recovery Amount (Rs.) *
@@ -652,7 +681,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                     placeholder="e.g. 25000"
                     value={recoveryAmount}
                     onChange={(e) => setRecoveryAmount(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-black text-emerald-600 dark:text-emerald-400 text-lg outline-none focus:border-emerald-500"
+                    className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-emerald-600 dark:text-emerald-400 text-lg outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -669,7 +698,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                       setRecoveryMethod('CASH');
                       setRecoveryBank('');
                     }}
-                    className={`py-3 px-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 border-2 transition-all ${
+                    className={`py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-2 border-2 transition-all ${
                       recoveryMethod === 'CASH'
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -682,7 +711,7 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setRecoveryMethod('ONLINE')}
-                    className={`py-3 px-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 border-2 transition-all ${
+                    className={`py-2.5 px-4 rounded-xl font-black text-xs flex items-center justify-center gap-2 border-2 transition-all ${
                       recoveryMethod === 'ONLINE'
                         ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-700 dark:text-blue-300 shadow-sm'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -752,11 +781,11 @@ const CreditSaleModal: React.FC<CreditSaleModalProps> = ({
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2">
+          <div>
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full py-4 rounded-2xl font-black text-white text-sm shadow-xl flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50 ${
+              className={`w-full py-3 rounded-xl font-black text-white text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50 ${
                 activeTab === 'credit'
                   ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30'
                   : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'

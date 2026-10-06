@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
   <title>AgriManage Pro</title>
   <link rel="icon" type="image/png" href="/src/logos/favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -63,6 +63,42 @@
     input[type=number] {
       -moz-appearance: textfield;
     }
+
+    /* ---------- Phone sizing (< 640px) ----------
+       The pages were designed for a laptop; scale down the oversized
+       paddings, radii and headline sizes so more fits on a small screen. */
+    @media (max-width: 639px) {
+      html { font-size: 14px; }
+      html body { overflow-x: hidden; }
+      html body .p-8 { padding: 1rem; }
+      html body .p-6 { padding: 0.875rem; }
+      html body .p-5 { padding: 0.75rem; }
+      html body .px-8 { padding-left: 1rem; padding-right: 1rem; }
+      html body .py-8 { padding-top: 1rem; padding-bottom: 1rem; }
+      html body .px-6 { padding-left: 0.875rem; padding-right: 0.875rem; }
+      html body .py-6 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+      html body .px-7 { padding-left: 1rem; padding-right: 1rem; }
+      html body .py-5 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+      html body .py-4 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+      html body .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+      html body .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.875rem; }
+      html body .gap-8 { gap: 1rem; }
+      html body .gap-6 { gap: 0.75rem; }
+      html body .rounded-\[2\.5rem\] { border-radius: 1.25rem; }
+      html body .rounded-\[2rem\] { border-radius: 1.25rem; }
+      html body .rounded-3xl { border-radius: 1.125rem; }
+      html body .text-5xl { font-size: 2rem; line-height: 2.25rem; }
+      html body .text-4xl { font-size: 1.75rem; line-height: 2rem; }
+      html body .text-3xl { font-size: 1.5rem; line-height: 2rem; }
+      html body .text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+      /* modals: use the whole screen width, keep content scrollable */
+      html body .fixed.inset-0.p-4 { padding: 0.5rem; }
+      html body .fixed.inset-0 > div[class*="max-w-"] { max-height: 96vh; }
+      /* a bigger tap target for the small icon buttons */
+      html body button { touch-action: manipulation; }
+    }
+    /* keep content clear of the bottom navigation bar on phones */
+    .pb-safe-nav { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
   </style>
   <script>
     // Prevent mouse wheel from changing input values when hovering or focused

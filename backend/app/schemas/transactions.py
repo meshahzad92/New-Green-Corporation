@@ -78,6 +78,9 @@ class Sale(SaleBase):
     id: UUID
     purchase_price: Decimal
     total_amount: Decimal
+    dealer_id: Optional[UUID] = None
+    dealer_name: Optional[str] = None
+    farmer_name: Optional[str] = None
     paid_amount: Optional[Decimal] = None
     invoice_id: Optional[str] = None
     invoice_no: Optional[str] = None

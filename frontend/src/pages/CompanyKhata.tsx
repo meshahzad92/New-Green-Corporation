@@ -208,87 +208,87 @@ const CompanyKhata: React.FC = () => {
       </div>
 
       {/* Top 4 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
         {/* Total Companies */}
-        <div className="bg-white dark:bg-slate-800/80 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-800/80 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
               Khata Companies
             </p>
-            <h3 className="text-3xl font-black text-slate-900 dark:text-white">
+            <h3 className="text-xl md:text-3xl font-black text-slate-900 dark:text-white">
               {metrics.totalCompanies}
             </h3>
-            <p className="text-xs text-slate-400 font-bold mt-1">Tracked Suppliers</p>
+            <p className="hidden md:block text-xs text-slate-400 font-bold mt-1">Tracked Suppliers</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-600 dark:text-slate-300">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-600 dark:text-slate-300">
             <Building2 className="w-6 h-6" />
           </div>
         </div>
 
         {/* Total Payments Made */}
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 p-6 rounded-3xl border border-emerald-100 dark:border-emerald-900/30 shadow-sm flex items-center justify-between">
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-emerald-100 dark:border-emerald-900/30 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">
               Total Amount Paid Out
             </p>
-            <h3 className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-300">
+            <h3 className="text-2xl sm:text-xl md:text-3xl font-black text-emerald-700 dark:text-emerald-300">
               Rs. {formatAmount(metrics.totalPaid)}
             </h3>
-            <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold mt-1">
+            <p className="hidden md:block text-xs text-emerald-600/70 dark:text-emerald-400/70 font-bold mt-1">
               Advances & bank transfers
             </p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <Wallet className="w-6 h-6" />
           </div>
         </div>
 
         {/* Total Stock Received */}
-        <div className="bg-blue-50 dark:bg-blue-950/20 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 shadow-sm flex items-center justify-between">
+        <div className="bg-blue-50 dark:bg-blue-950/20 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-blue-100 dark:border-blue-900/30 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">
               Total Stock Received
             </p>
-            <h3 className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-300">
+            <h3 className="text-2xl sm:text-xl md:text-3xl font-black text-blue-700 dark:text-blue-300">
               Rs. {formatAmount(metrics.totalPurchased)}
             </h3>
-            <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-bold mt-1">
+            <p className="hidden md:block text-xs text-blue-600/70 dark:text-blue-400/70 font-bold mt-1">
               Inward shipment value
             </p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Package className="w-6 h-6" />
           </div>
         </div>
 
         {/* Net Market Standing (Advance vs Payable) */}
         {metrics.netOverall >= 0 ? (
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-xl shadow-emerald-600/20 flex items-center justify-between">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-3 md:p-6 rounded-2xl md:rounded-3xl shadow-xl shadow-emerald-600/20 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-emerald-200 mb-1">
                 Net Advance with Companies
               </p>
-              <h3 className="text-2xl sm:text-3xl font-black">
+              <h3 className="text-2xl sm:text-xl md:text-3xl font-black">
                 Rs. {formatAmount(metrics.netOverall)}
               </h3>
-              <p className="text-xs text-emerald-100 font-bold mt-1">Our advance balance safe</p>
+              <p className="hidden md:block text-xs text-emerald-100 font-bold mt-1">Our advance balance safe</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+            <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
               <TrendingUp className="w-6 h-6" />
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-rose-600 to-rose-700 text-white p-6 rounded-3xl shadow-xl shadow-rose-600/20 flex items-center justify-between">
+          <div className="bg-gradient-to-br from-rose-600 to-rose-700 text-white p-3 md:p-6 rounded-2xl md:rounded-3xl shadow-xl shadow-rose-600/20 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-rose-200 mb-1">
                 Net Payable to Companies
               </p>
-              <h3 className="text-2xl sm:text-3xl font-black">
+              <h3 className="text-2xl sm:text-xl md:text-3xl font-black">
                 Rs. {formatAmount(Math.abs(metrics.netOverall))}
               </h3>
-              <p className="text-xs text-rose-100 font-bold mt-1">Dues pending for products</p>
+              <p className="hidden md:block text-xs text-rose-100 font-bold mt-1">Dues pending for products</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+            <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
               <TrendingDown className="w-6 h-6" />
             </div>
           </div>

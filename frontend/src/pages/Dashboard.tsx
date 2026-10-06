@@ -115,7 +115,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Top Row: Financial Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <StatCard
           label="Total Sales Today"
           value={maskAmount(`Rs. ${formatAmount(Number(stats.today_sales_revenue || 0))}`)}
@@ -147,7 +147,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Second Row: Payment Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
         <StatCard
           label="Credit (Pending)"
           value={maskAmount(`Rs. ${formatAmount(totalCredit)}`)}

@@ -21,7 +21,8 @@ import {
   BookOpen,
   Landmark,
   Banknote,
-  MoreHorizontal
+  MoreHorizontal,
+  LayoutGrid
 } from 'lucide-react';
 
 const navItems = [
@@ -35,6 +36,14 @@ const navItems = [
   { path: '/company-khata', label: 'Company Khata', icon: Landmark },
   { path: '/money', label: 'Money', icon: Banknote },
   { path: '/more', label: 'More', icon: MoreHorizontal },
+];
+
+// Quick-access tabs for the phone bottom bar
+const bottomTabs = [
+  { path: '/', label: 'Home', icon: LayoutDashboard },
+  { path: '/sales', label: 'Sales', icon: ShoppingCart },
+  { path: '/stock', label: 'Stock', icon: Layers },
+  { path: '/expenses', label: 'Expenses', icon: Receipt },
 ];
 
 const Sidebar: React.FC = () => {
@@ -98,7 +107,7 @@ const Sidebar: React.FC = () => {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-emerald-900 dark:bg-slate-900 flex items-center justify-between px-6 z-50 text-white">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-emerald-900 dark:bg-slate-900 flex items-center justify-between px-4 z-50 text-white">
         <div className="flex items-center gap-2">
           <Sprout className="w-6 h-6 text-emerald-400" />
           <span className="font-black text-sm uppercase tracking-tighter">AgriManage</span>
@@ -107,6 +116,37 @@ const Sidebar: React.FC = () => {
           {isOpen ? <X className="w-6 h-6" /> : <MoreVertical className="w-6 h-6" />}
         </button>
       </div>
+
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-emerald-900 dark:bg-slate-900 border-t border-white/10 grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
+        {bottomTabs.map((tab) => (
+          <NavLink
+            key={tab.path}
+            to={tab.path}
+            end={tab.path === '/'}
+            className={({ isActive }) => `flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-bold tracking-wide transition-colors ${isActive ? 'text-emerald-300' : 'text-emerald-100/60'}`}
+          >
+            {({ isActive }) => (
+              <>
+                <span className={`px-4 py-1 rounded-full transition-colors ${isActive ? 'bg-emerald-500/30' : ''}`}>
+                  <tab.icon className="w-5 h-5" />
+                </span>
+                {tab.label}
+              </>
+            )}
+          </NavLink>
+        ))}
+        <button
+          onClick={toggleSidebar}
+          className="flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-bold tracking-wide text-emerald-100/60"
+        >
+          <span className="px-4 py-1">
+            <LayoutGrid className="w-5 h-5" />
+          </span>
+          Menu
+        </button>
+      </nav>
 
       {/* Sidebar Desktop */}
       <div className="hidden lg:flex w-64 h-screen flex-col fixed left-0 top-0 z-50">
